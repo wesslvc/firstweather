@@ -115,34 +115,36 @@ export default function Home() {
 
   return (
     <main style={{ maxWidth: 540, margin: '0 auto', padding: '2rem 1.4rem 4rem' }}>
-      <header style={{ marginBottom: '2.4rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <p className="font-label" style={{ fontSize: '0.65rem', color: '#888', marginBottom: '0.1rem' }}>날씨 & 미세먼지</p>
-            <h1 className="font-display" style={{ fontSize: 'clamp(3.5rem, 14vw, 5.5rem)', lineHeight: 0.9, letterSpacing: '0.01em' }}>
-              WEATHER
-            </h1>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end', marginTop: '0.3rem' }}>
-            <select className="location-select" value={locationIdx} onChange={handleLocationChange}>
-              {LOCATIONS.map((loc, i) => (
-                <option key={loc.name} value={i}>{loc.name}</option>
-              ))}
-            </select>
-            <button className="refresh-btn" onClick={() => fetchData(location)} disabled={loading}
-              style={{ opacity: loading ? 0.5 : 1 }}>
-              {loading ? '...' : '새로고침'}
-            </button>
-          </div>
+      <header style={{ marginBottom: '2rem' }}>
+        {/* 타이틀 */}
+        <p className="font-label" style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginBottom: '0.15rem' }}>
+          날씨 &amp; 미세먼지
+        </p>
+        <h1 className="font-display" style={{ fontSize: 'clamp(3.2rem, 13vw, 5rem)', lineHeight: 0.88, letterSpacing: '0.01em' }}>
+          WEATHER
+        </h1>
+
+        {/* 컨트롤 바 */}
+        <div className="control-bar">
+          <select className="location-select" value={locationIdx} onChange={handleLocationChange}>
+            {LOCATIONS.map((loc, i) => (
+              <option key={loc.name} value={i}>
+                {loc.name}{loc.sub && loc.sub !== loc.name ? ` · ${loc.sub}` : ''}
+              </option>
+            ))}
+          </select>
+          <button className="refresh-btn" onClick={() => fetchData(location)} disabled={loading}>
+            {loading ? '···' : '↺ 새로고침'}
+          </button>
         </div>
-        <div style={{ marginTop: '1rem' }}>
-          <p className="font-label" style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.08em' }}>
-            {location.name} — {location.region}
-          </p>
-          <p className="font-label" style={{ fontSize: '0.6rem', color: '#888', marginTop: '0.25rem' }}>
-            *기상청 초단기실황·예보 / 에어코리아 대기오염정보
-          </p>
-        </div>
+
+        {/* 위치 표시 */}
+        <p className="font-label" style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em' }}>
+          {location.name}{location.sub ? ` · ${location.sub}` : ''} — {location.region}
+        </p>
+        <p className="font-label" style={{ fontSize: '0.58rem', color: 'var(--color-muted)', marginTop: '0.2rem' }}>
+          *기상청 초단기실황·예보 / 에어코리아 대기오염정보
+        </p>
       </header>
 
       {/* 날씨 섹션 */}
@@ -234,7 +236,7 @@ export default function Home() {
         ) : null}
       </section>
 
-      <footer style={{ marginTop: '2.4rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
+      <footer style={{ marginTop: '2.4rem', borderTop: '1px solid var(--color-divider)', paddingTop: '1rem' }}>
         <p className="font-label" style={{ fontSize: '0.55rem', color: '#aaa', letterSpacing: '0.1em' }}>
           출처: 기상청 기상자료개방포털 / 한국환경공단 에어코리아
         </p>

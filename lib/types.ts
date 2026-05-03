@@ -85,17 +85,25 @@ export function windDirectionLabel(deg: number): string {
   return dirs[Math.round(deg / 22.5) % 16];
 }
 
-export const LOCATIONS: Array<{ name: string; region: string; nx: number; ny: number; station: string }> = [
-  { name: '서울', region: '대한민국', nx: 60,  ny: 127, station: '중구'    },
-  { name: '부산', region: '대한민국', nx: 98,  ny: 76,  station: '연제구'  },
-  { name: '대구', region: '대한민국', nx: 89,  ny: 90,  station: '수성구'  },
-  { name: '인천', region: '대한민국', nx: 55,  ny: 124, station: '미추홀구' },
-  { name: '광주', region: '대한민국', nx: 58,  ny: 74,  station: '북구'    },
-  { name: '대전', region: '대한민국', nx: 67,  ny: 100, station: '유성구'  },
-  { name: '울산', region: '대한민국', nx: 102, ny: 84,  station: '남구'    },
-  { name: '세종', region: '대한민국', nx: 66,  ny: 103, station: '세종'    },
-  { name: '수원', region: '대한민국', nx: 60,  ny: 121, station: '수원'    },
-  { name: '청주', region: '대한민국', nx: 69,  ny: 107, station: '서원구'  },
-  { name: '전주', region: '대한민국', nx: 63,  ny: 89,  station: '완산구'  },
-  { name: '제주', region: '대한민국', nx: 53,  ny: 38,  station: '이도동'  },
+export const LOCATIONS: Array<{
+  name: string; sub: string; region: string;
+  nx: number; ny: number; station: string;
+}> = [
+  { name: '서울', sub: '중구',   region: '대한민국', nx: 60,  ny: 127, station: '덕수궁길' },
+  { name: '부산', sub: '동구',   region: '대한민국', nx: 98,  ny: 76,  station: '광복동'   },
+  { name: '대구', sub: '중구',   region: '대한민국', nx: 89,  ny: 90,  station: '수창동'   },
+  { name: '인천', sub: '남동구', region: '대한민국', nx: 55,  ny: 124, station: '구월동'   },
+  { name: '광주', sub: '동구',   region: '대한민국', nx: 58,  ny: 74,  station: '서석동'   },
+  { name: '대전', sub: '동구',   region: '대한민국', nx: 67,  ny: 100, station: '용두동'   },
+  { name: '울산', sub: '남구',   region: '대한민국', nx: 102, ny: 84,  station: '신정동'   },
+  { name: '세종', sub: '나성동', region: '대한민국', nx: 66,  ny: 103, station: '나성동'   },
+  { name: '경기', sub: '김포',   region: '대한민국', nx: 55,  ny: 128, station: '고촌읍'   },
+  { name: '강원', sub: '원주',   region: '대한민국', nx: 76,  ny: 122, station: '중앙동'   },
+  { name: '충북', sub: '청주',   region: '대한민국', nx: 69,  ny: 107, station: '영운동'   },
+  { name: '충남', sub: '천안',   region: '대한민국', nx: 63,  ny: 110, station: '문화동'   },
+  { name: '전북', sub: '전주',   region: '대한민국', nx: 63,  ny: 89,  station: '서원로'   },
+  { name: '전남', sub: '여수',   region: '대한민국', nx: 73,  ny: 66,  station: '학동'     },
+  { name: '경북', sub: '포항',   region: '대한민국', nx: 102, ny: 94,  station: '대도동'   },
+  { name: '경남', sub: '창원',   region: '대한민국', nx: 90,  ny: 77,  station: '사파동'   },
+  { name: '제주', sub: '제주시', region: '대한민국', nx: 53,  ny: 38,  station: '연동'     },
 ];
