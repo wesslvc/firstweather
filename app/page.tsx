@@ -2,16 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import type { WeatherData, AirQualityData, GradeKey } from '@/lib/types';
-import { GRADE_MAP, GRADE_LABEL, PRECIP_LABEL, PRECIP_ICON, windDirectionLabel } from '@/lib/types';
-
-// 기본 위치: 서울 (기상청 격자 60, 127 / 에어코리아 중구)
-const DEFAULT_LOCATION = {
-  name: '서울',
-  region: '대한민국',
-  nx: 60,
-  ny: 127,
-  station: '중구',
-};
+import { GRADE_MAP, GRADE_LABEL, PRECIP_LABEL, PRECIP_ICON, LOCATIONS, windDirectionLabel } from '@/lib/types';
 
 interface ApiResult<T> {
   data: T;
@@ -57,6 +48,7 @@ function formatTime(baseDate: string, baseTime: string): string {
 }
 
 export default function Home() {
+  const [locationIdx, setLocationIdx] = useState(0);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [air, setAir] = useState<AirQualityData | null>(null);
   const [isMock, setIsMock] = useState(false);
@@ -64,13 +56,15 @@ export default function Home() {
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const location = LOCATIONS[locationIdx];
+
+  const fetchData = useCallback(async (loc: typeof LOCATIONS[number]) => {
     setLoading(true);
     setError(null);
     try {
       const [wRes, aRes] = await Promise.all([
-        fetch(`/api/weather?nx=${DEFAULT_LOCATION.nx}&ny=${DEFAULT_LOCATION.ny}`),
-        fetch(`/api/airquality?station=${encodeURIComponent(DEFAULT_LOCATION.station)}`),
+        fetch(`/api/weather?nx=${loc.nx}&ny=${loc.ny}`),
+        fetch(`/api/airquality?station=${encodeURIComponent(loc.station)}`),
       ]);
 
       const wJson: ApiResult<WeatherData> = await wRes.json();
@@ -88,8 +82,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(location);
+  }, [fetchData, location]);
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLocationIdx(Number(e.target.value));
+    setWeather(null);
+    setAir(null);
+  };
 
   const precipIcon = weather ? PRECIP_ICON[weather.precipitationType] ?? '🌤️' : '';
   const precipLabel = weather ? PRECIP_LABEL[weather.precipitationType] ?? '-' : '';
@@ -113,19 +113,30 @@ export default function Home() {
               WEATHER
             </h1>
           </div>
-          <button
-            className="refresh-btn"
-            onClick={fetchData}
-            disabled={loading}
-            style={{ marginTop: '0.3rem', opacity: loading ? 0.5 : 1 }}
-          >
-            {loading ? '...' : '새로고침'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end', marginTop: '0.3rem' }}>
+            <select
+              className="location-select"
+              value={locationIdx}
+              onChange={handleLocationChange}
+            >
+              {LOCATIONS.map((loc, i) => (
+                <option key={loc.name} value={i}>{loc.name}</option>
+              ))}
+            </select>
+            <button
+              className="refresh-btn"
+              onClick={() => fetchData(location)}
+              disabled={loading}
+              style={{ opacity: loading ? 0.5 : 1 }}
+            >
+              {loading ? '...' : '새로고침'}
+            </button>
+          </div>
         </div>
 
         <div style={{ marginTop: '1rem' }}>
           <p className="font-label" style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.08em' }}>
-            {DEFAULT_LOCATION.name} — {DEFAULT_LOCATION.region}
+            {location.name} — {location.region}
           </p>
           <p className="font-label" style={{ fontSize: '0.6rem', color: '#888', marginTop: '0.25rem' }}>
             *기상청 초단기실황 / 에어코리아 대기오염정보
@@ -155,35 +166,30 @@ export default function Home() {
           </>
         ) : weather ? (
           <>
-            {/* 기온 */}
             <div className="weather-row">
               <div className="weather-row-label">기온</div>
               <div className="weather-row-right">°C</div>
               <div className="weather-row-title">{weather.temperature}</div>
             </div>
 
-            {/* 하늘/강수 상태 */}
             <div className="weather-row">
               <div className="weather-row-label">강수형태</div>
               <div className="weather-row-right" style={{ fontSize: '1.8rem' }}>{precipIcon}</div>
               <div className="weather-row-title">{precipLabel}</div>
             </div>
 
-            {/* 습도 */}
             <div className="weather-row">
               <div className="weather-row-label">습도</div>
               <div className="weather-row-right">%</div>
               <div className="weather-row-title">{weather.humidity}</div>
             </div>
 
-            {/* 풍속 */}
             <div className="weather-row">
               <div className="weather-row-label">풍속 / 풍향</div>
               <div className="weather-row-right">{windDir} · m/s</div>
               <div className="weather-row-title">{weather.windSpeed}</div>
             </div>
 
-            {/* 강수량 */}
             <div className="weather-row">
               <div className="weather-row-label">1시간 강수량</div>
               <div className="weather-row-right">mm</div>
@@ -207,7 +213,6 @@ export default function Home() {
           </>
         ) : air ? (
           <>
-            {/* PM2.5 */}
             <div className="weather-row">
               <div className="weather-row-label">
                 초미세먼지 PM2.5
@@ -217,7 +222,6 @@ export default function Home() {
               <div className={`weather-row-title grade-${pm25Grade}`}>{air.pm25Value}</div>
             </div>
 
-            {/* PM10 */}
             <div className="weather-row">
               <div className="weather-row-label">
                 미세먼지 PM10
@@ -227,14 +231,12 @@ export default function Home() {
               <div className={`weather-row-title grade-${pm10Grade}`}>{air.pm10Value}</div>
             </div>
 
-            {/* 오존 */}
             <div className="weather-row">
               <div className="weather-row-label">오존 O₃</div>
               <div className="weather-row-right">ppm</div>
               <div className="weather-row-title">{air.o3Value}</div>
             </div>
 
-            {/* 일산화탄소 */}
             <div className="weather-row">
               <div className="weather-row-label">일산화탄소 CO</div>
               <div className="weather-row-right">ppm</div>

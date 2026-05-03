@@ -106,6 +106,31 @@ html, body {
 .badge-bad      { background: var(--color-bad);      color: #fff; }
 .badge-very-bad { background: var(--color-very-bad); color: #fff; }
 
+.location-select {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1.5px solid #000;
+  padding: 5px 10px;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23000'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+}
+
+.location-select:focus {
+  outline: none;
+  background-color: #000;
+  color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E");
+}
+
 .refresh-btn {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
