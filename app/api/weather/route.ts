@@ -4,17 +4,22 @@ import type { WeatherData } from '@/lib/types';
 
 const BASE_URL = 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst';
 
-function getBaseDateTime(): { date: string; time: string } {
-  const now = new Date();
-  // 기상청 초단기실황은 매 정시 40분 이후 발표, 1시간 단위
-  const minutes = now.getMinutes();
-  if (minutes < 40) now.setHours(now.getHours() - 1);
+function getKSTBaseDateTime(): { date: string; time: string } {
+  // 서버는 UTC로 동작하므로 KST(UTC+9)로 변환
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+
+  // 기상청 초단기실황은 매 정시 40분 이후 발표
+  if (kst.getUTCMinutes() < 40) {
+    kst.setUTCHours(kst.getUTCHours() - 1);
+  }
 
   const pad = (n: number) => String(n).padStart(2, '0');
-  const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-  const time = `${pad(now.getHours())}00`;
+  const date = `${kst.getUTCFullYear()}${pad(kst.getUTCMonth() + 1)}${pad(kst.getUTCDate())}`;
+  const time = `${pad(kst.getUTCHours())}00`;
   return { date, time };
 }
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const apiKey = process.env.KMA_API_KEY;
@@ -27,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { date, time } = getBaseDateTime();
+    const { date, time } = getKSTBaseDateTime();
     const params = new URLSearchParams({
       serviceKey: apiKey,
       pageNo: '1',
@@ -39,9 +44,7 @@ export async function GET(request: NextRequest) {
       ny,
     });
 
-    const res = await fetch(`${BASE_URL}?${params}`, {
-      next: { revalidate: 1800 },
-    });
+    const res = await fetch(`${BASE_URL}?${params}`, { cache: 'no-store' });
 
     if (!res.ok) throw new Error(`기상청 API 오류: ${res.status}`);
 

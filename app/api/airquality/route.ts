@@ -5,6 +5,8 @@ import type { AirQualityData } from '@/lib/types';
 const BASE_URL =
   'http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const apiKey = process.env.AIRKOREA_API_KEY;
   const { searchParams } = new URL(request.url);
@@ -25,9 +27,7 @@ export async function GET(request: NextRequest) {
       ver: '1.3',
     });
 
-    const res = await fetch(`${BASE_URL}?${params}`, {
-      next: { revalidate: 1800 },
-    });
+    const res = await fetch(`${BASE_URL}?${params}`, { cache: 'no-store' });
 
     if (!res.ok) throw new Error(`에어코리아 API 오류: ${res.status}`);
 
