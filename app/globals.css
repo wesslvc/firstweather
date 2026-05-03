@@ -2,20 +2,51 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg: #ffffff;
-  --color-text: #000000;
-  --color-muted: #555555;
-  --color-good: #00a651;
-  --color-moderate: #f5a623;
-  --color-bad: #ff6b00;
-  --color-very-bad: #cc0000;
+  --color-bg:        #ffffff;
+  --color-text:      #000000;
+  --color-muted:     #555555;
+  --color-divider:   #000000;
+  --color-footer:    #aaaaaa;
+  --color-skeleton1: #ebebeb;
+  --color-skeleton2: #dddddd;
+  --color-btn-bg:    transparent;
+  --color-btn-text:  #000000;
+  --color-btn-border:#000000;
+  --color-btn-hover-bg:   #000000;
+  --color-btn-hover-text: #ffffff;
+  --color-select-arrow: %23000000;
+
+  /* 대기질 등급 — 좋음:파랑, 보통:초록, 나쁨:노랑, 매우나쁨:빨강 */
+  --color-good:      #1a6fd4;
+  --color-moderate:  #27a85a;
+  --color-bad:       #e0b800;
+  --color-very-bad:  #d42020;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg:        #0d0d0d;
+    --color-text:      #f0f0f0;
+    --color-muted:     #888888;
+    --color-divider:   #333333;
+    --color-footer:    #555555;
+    --color-skeleton1: #1e1e1e;
+    --color-skeleton2: #2a2a2a;
+    --color-btn-bg:    transparent;
+    --color-btn-text:  #f0f0f0;
+    --color-btn-border:#f0f0f0;
+    --color-btn-hover-bg:   #f0f0f0;
+    --color-btn-hover-text: #0d0d0d;
+    --color-select-arrow: %23f0f0f0;
+
+    --color-good:      #4d9de0;
+    --color-moderate:  #3dbb6e;
+    --color-bad:       #e8cc30;
+    --color-very-bad:  #e84444;
+  }
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
   background-color: var(--color-bg);
@@ -36,7 +67,7 @@ html, body {
 }
 
 .weather-row {
-  border-top: 1.5px solid #000;
+  border-top: 1.5px solid var(--color-divider);
   padding: 1.1rem 0;
   display: grid;
   grid-template-columns: 1fr auto;
@@ -46,7 +77,7 @@ html, body {
 }
 
 .weather-row:last-child {
-  border-bottom: 1.5px solid #000;
+  border-bottom: 1.5px solid var(--color-divider);
 }
 
 .weather-row-label {
@@ -70,6 +101,7 @@ html, body {
   grid-row: 1 / 3;
   align-self: center;
   white-space: nowrap;
+  color: var(--color-text);
 }
 
 .weather-row-title {
@@ -79,12 +111,13 @@ html, body {
   line-height: 0.92;
   grid-column: 1;
   grid-row: 2;
+  color: var(--color-text);
 }
 
-.grade-good     { color: var(--color-good); }
-.grade-moderate { color: var(--color-moderate); }
-.grade-bad      { color: var(--color-bad); }
-.grade-very-bad { color: var(--color-very-bad); }
+.grade-good     { color: var(--color-good) !important; }
+.grade-moderate { color: var(--color-moderate) !important; }
+.grade-bad      { color: var(--color-bad) !important; }
+.grade-very-bad { color: var(--color-very-bad) !important; }
 
 .grade-badge {
   display: inline-block;
@@ -103,7 +136,7 @@ html, body {
 
 .badge-good     { background: var(--color-good);     color: #fff; }
 .badge-moderate { background: var(--color-moderate); color: #fff; }
-.badge-bad      { background: var(--color-bad);      color: #fff; }
+.badge-bad      { background: var(--color-bad);      color: #000; }
 .badge-very-bad { background: var(--color-very-bad); color: #fff; }
 
 .location-select {
@@ -112,23 +145,31 @@ html, body {
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  border: 1.5px solid #000;
-  padding: 5px 10px;
-  background: transparent;
+  border: 1.5px solid var(--color-btn-border);
+  padding: 5px 22px 5px 10px;
+  background-color: var(--color-btn-bg);
+  color: var(--color-btn-text);
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  padding-right: 22px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23000'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='var(--color-select-arrow)'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 7px center;
 }
 
+/* select 화살표 다크모드 */
+@media (prefers-color-scheme: dark) {
+  .location-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23f0f0f0'/%3E%3C/svg%3E");
+  }
+  .location-select option {
+    background: #1a1a1a;
+    color: #f0f0f0;
+  }
+}
+
 .location-select:focus {
   outline: none;
-  background-color: #000;
-  color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E");
 }
 
 .refresh-btn {
@@ -137,20 +178,21 @@ html, body {
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  border: 1.5px solid #000;
+  border: 1.5px solid var(--color-btn-border);
   padding: 5px 14px;
-  background: transparent;
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .refresh-btn:hover {
-  background: #000;
-  color: #fff;
+  background: var(--color-btn-hover-bg);
+  color: var(--color-btn-hover-text);
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #ebebeb 25%, #ddd 50%, #ebebeb 75%);
+  background: linear-gradient(90deg, var(--color-skeleton1) 25%, var(--color-skeleton2) 50%, var(--color-skeleton1) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 2px;

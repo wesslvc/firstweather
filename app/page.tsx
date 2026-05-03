@@ -51,6 +51,11 @@ function formatKSTTime(baseDate: string, baseTime: string): string {
   return `${m}월 ${d}일 (${day}) ${h}:${min}`;
 }
 
+function currentKSTTime(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000)
+    .toISOString().slice(11, 16); // "HH:MM"
+}
+
 export default function Home() {
   const [locationIdx, setLocationIdx] = useState(0);
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -58,6 +63,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [wError, setWError] = useState<string | null>(null);
   const [aError, setAError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string>('');
 
   const location = LOCATIONS[locationIdx];
 
@@ -88,6 +94,7 @@ export default function Home() {
       setAError('대기질 데이터를 가져오지 못했습니다.');
     }
 
+    setFetchedAt(currentKSTTime());
     setLoading(false);
   }, []);
 
@@ -141,7 +148,9 @@ export default function Home() {
       {/* 날씨 섹션 */}
       <section style={{ marginBottom: '0.5rem' }}>
         <p className="font-label" style={{ fontSize: '0.6rem', color: '#888', marginBottom: '0.6rem', letterSpacing: '0.14em' }}>
-          현재 날씨{timeStr && ` — ${timeStr}`}
+          현재 날씨
+          {timeStr && <> · 측정 {timeStr}</>}
+          {fetchedAt && <> · 조회 {fetchedAt} KST</>}
         </p>
 
         {loading ? (
