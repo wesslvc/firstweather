@@ -1,75 +1,122 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_WEATHER } from '@/lib/mockData';
 import type { WeatherData } from '@/lib/types';
 
-const BASE_URL = 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst';
+const NCST_URL  = 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst';
+const FCST_URL  = 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst';
 
-function getKSTBaseDateTime(): { date: string; time: string } {
-  // 서버는 UTC로 동작하므로 KST(UTC+9)로 변환
-  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-
-  // 기상청 초단기실황은 매 정시 40분 이후 발표
-  if (kst.getUTCMinutes() < 40) {
-    kst.setUTCHours(kst.getUTCHours() - 1);
-  }
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const date = `${kst.getUTCFullYear()}${pad(kst.getUTCMonth() + 1)}${pad(kst.getUTCDate())}`;
-  const time = `${pad(kst.getUTCHours())}00`;
-  return { date, time };
-}
+const NO_CACHE = { cache: 'no-store' as const };
+const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
 
 export const dynamic = 'force-dynamic';
 
+function kstNow(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000);
+}
+
+function pad(n: number) { return String(n).padStart(2, '0'); }
+
+function ncstBaseTime(kst: Date): { date: string; time: string } {
+  const m = kst.getUTCMinutes();
+  const h = m < 40 ? kst.getUTCHours() - 1 : kst.getUTCHours();
+  const d = new Date(kst);
+  d.setUTCHours(h < 0 ? 23 : h);
+  if (h < 0) d.setUTCDate(d.getUTCDate() - 1);
+  return {
+    date: `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`,
+    time: `${pad(d.getUTCHours())}00`,
+  };
+}
+
+function fcstBaseTime(kst: Date): { date: string; time: string } {
+  // 초단기예보: 매 30분 발표, 발표 후 약 10분 소요
+  const buffered = new Date(kst.getTime() - 10 * 60 * 1000);
+  const m = buffered.getUTCMinutes();
+  const baseMin = m < 30 ? 0 : 30;
+  const d = new Date(buffered);
+  d.setUTCMinutes(baseMin, 0, 0);
+  return {
+    date: `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`,
+    time: `${pad(d.getUTCHours())}${pad(baseMin)}`,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const apiKey = process.env.KMA_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: 'API 키가 설정되지 않았습니다.' }, { status: 503, headers: NO_CACHE_HEADERS });
+  }
+
   const { searchParams } = new URL(request.url);
   const nx = searchParams.get('nx') ?? '60';
   const ny = searchParams.get('ny') ?? '127';
-
-  if (!apiKey) {
-    return NextResponse.json({ data: MOCK_WEATHER, mock: true });
-  }
+  const kst = kstNow();
 
   try {
-    const { date, time } = getKSTBaseDateTime();
-    const params = new URLSearchParams({
-      serviceKey: apiKey,
-      pageNo: '1',
-      numOfRows: '100',
-      dataType: 'JSON',
-      base_date: date,
-      base_time: time,
-      nx,
-      ny,
+    const { date: ncstDate, time: ncstTime } = ncstBaseTime(kst);
+    const { date: fcstDate, time: fcstTime } = fcstBaseTime(kst);
+
+    const ncstParams = new URLSearchParams({
+      serviceKey: apiKey, pageNo: '1', numOfRows: '100', dataType: 'JSON',
+      base_date: ncstDate, base_time: ncstTime, nx, ny,
+    });
+    const fcstParams = new URLSearchParams({
+      serviceKey: apiKey, pageNo: '1', numOfRows: '100', dataType: 'JSON',
+      base_date: fcstDate, base_time: fcstTime, nx, ny,
     });
 
-    const res = await fetch(`${BASE_URL}?${params}`, { cache: 'no-store' });
+    const [ncstRes, fcstRes] = await Promise.all([
+      fetch(`${NCST_URL}?${ncstParams}`, NO_CACHE),
+      fetch(`${FCST_URL}?${fcstParams}`, NO_CACHE),
+    ]);
 
-    if (!res.ok) throw new Error(`기상청 API 오류: ${res.status}`);
+    if (!ncstRes.ok) throw new Error(`기상청 실황 API ${ncstRes.status}`);
 
-    const json = await res.json();
-    const items: Array<{ category: string; obsrValue: string }> =
-      json?.response?.body?.items?.item ?? [];
+    const ncstJson = await ncstRes.json();
+    const ncstItems: Array<{ category: string; obsrValue: string }> =
+      ncstJson?.response?.body?.items?.item ?? [];
 
-    const get = (cat: string) => items.find((i) => i.category === cat)?.obsrValue ?? '0';
+    const getNcst = (cat: string) => ncstItems.find(i => i.category === cat)?.obsrValue ?? null;
+
+    // 초단기예보에서 현재 시각과 가장 가까운 SKY, LGT 가져오기
+    let sky: number | null = null;
+    let lightning: number | null = null;
+    if (fcstRes.ok) {
+      const fcstJson = await fcstRes.json();
+      const fcstItems: Array<{ category: string; fcstValue: string; fcstDate: string; fcstTime: string }> =
+        fcstJson?.response?.body?.items?.item ?? [];
+      // 현재 KST 시각의 예보 슬롯을 찾음
+      const currentHHMM = `${pad(kst.getUTCHours())}${pad(Math.floor(kst.getUTCMinutes() / 30) * 30)}`;
+      const skyItem = fcstItems.find(i => i.category === 'SKY' && i.fcstTime === currentHHMM)
+        ?? fcstItems.find(i => i.category === 'SKY');
+      const lgtItem = fcstItems.find(i => i.category === 'LGT' && i.fcstTime === currentHHMM)
+        ?? fcstItems.find(i => i.category === 'LGT');
+      if (skyItem) sky = parseInt(skyItem.fcstValue, 10);
+      if (lgtItem) lightning = parseInt(lgtItem.fcstValue, 10);
+    }
+
+    const tempRaw    = getNcst('T1H');
+    const humRaw     = getNcst('REH');
+    const windSRaw   = getNcst('WSD');
+    const windDRaw   = getNcst('VEC');
+    const ptyRaw     = getNcst('PTY');
+    const rn1Raw     = getNcst('RN1');
 
     const data: WeatherData = {
-      temperature: parseFloat(get('T1H')),
-      humidity: parseFloat(get('REH')),
-      windSpeed: parseFloat(get('WSD')),
-      windDirection: parseFloat(get('VEC')),
-      precipitationType: parseInt(get('PTY'), 10),
-      precipitation: get('RN1'),
-      baseDate: date,
-      baseTime: time,
-      nx: parseInt(nx, 10),
-      ny: parseInt(ny, 10),
+      temperature:       tempRaw   !== null ? parseFloat(tempRaw)   : 0,
+      humidity:          humRaw    !== null ? parseFloat(humRaw)    : 0,
+      windSpeed:         windSRaw  !== null ? parseFloat(windSRaw)  : 0,
+      windDirection:     windDRaw  !== null ? parseFloat(windDRaw)  : 0,
+      precipitationType: ptyRaw    !== null ? parseInt(ptyRaw, 10)  : 0,
+      precipitation:     rn1Raw    ?? '0',
+      sky,
+      lightning,
+      baseDate: ncstDate,
+      baseTime: ncstTime,
     };
 
-    return NextResponse.json({ data, mock: false });
+    return NextResponse.json({ data }, { headers: NO_CACHE_HEADERS });
   } catch (e) {
     console.error('Weather API error:', e);
-    return NextResponse.json({ data: MOCK_WEATHER, mock: true, error: String(e) });
+    return NextResponse.json({ error: String(e) }, { status: 500, headers: NO_CACHE_HEADERS });
   }
 }
