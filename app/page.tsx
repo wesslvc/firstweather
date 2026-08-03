@@ -39,7 +39,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    // 서버 라우트가 https 실패 시 http로 재시도하므로 그보다 넉넉하게 잡는다
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const res = await fetch(`/api/warnings?t=${Date.now()}`, { signal: controller.signal });
       const json: ApiResult = await res.json();
@@ -147,7 +148,7 @@ export default function Home() {
           <div className="app-subtitle">기상청 기상특보 조회서비스 · 시/군/구 단위</div>
         </div>
         <div className="header-actions">
-          <button className="icon-btn" onClick={handleDownload} disabled={loading || !!error}>
+          <button className="icon-btn" onClick={handleDownload} disabled={loading}>
             지도 저장
           </button>
           <button className="icon-btn primary" onClick={fetchData} disabled={loading}>
@@ -186,7 +187,7 @@ export default function Home() {
           <div className="map-skeleton skeleton" />
           <p className="meta-line">특보 데이터를 불러오는 중입니다…</p>
         </div>
-      ) : !error ? (
+      ) : (
         <>
           <div className="map-card">
             <div ref={mapWrapRef}>
@@ -232,8 +233,10 @@ export default function Home() {
             </div>
 
             <p className="meta-line">
-              발표 {formatKST(tmFc)} · 발효 {formatKST(tmEf)}
-              {fetchedAt && ` · 조회 ${fetchedAt} KST`} · 지역 클릭 시 상세 특보 표시 · 스크롤/핀치로 확대
+              {tmFc && `발표 ${formatKST(tmFc)} · `}
+              {tmEf && `발효 ${formatKST(tmEf)} · `}
+              {fetchedAt && `조회 ${fetchedAt} KST · `}
+              지역 클릭 시 상세 특보 표시 · 스크롤/핀치로 확대
             </p>
           </div>
 
@@ -275,11 +278,11 @@ export default function Home() {
             </div>
           )}
 
-          {entries.length === 0 && (
+          {!error && entries.length === 0 && (
             <p className="empty-note">현재 전국에 발효 중인 기상특보가 없습니다.</p>
           )}
         </>
-      ) : null}
+      )}
 
       <div className="app-footer">
         출처: 기상청 기상자료개방포털 (기상특보 조회서비스)
