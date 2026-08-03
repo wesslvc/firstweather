@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { findDistrictsForAreaName, DISTRICT_PROVINCE } from '@/lib/regionMap';
+import { resolveAreaText, DISTRICT_PROVINCE } from '@/lib/regionMap';
 import { findWarningType, type WarningEntry, type WarningLevel } from '@/lib/warningTypes';
 
 const API_PATH = '//apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
@@ -61,16 +61,6 @@ async function fetchPwnStatus(query: string): Promise<Response> {
   throw lastError ?? new Error('기상특보 API 요청 실패');
 }
 
-function tokenizeAreaText(areaText: string): string[] {
-  const parenContents = [...areaText.matchAll(/\(([^)]*)\)/g)].map((m) => m[1]);
-  const withoutParens = areaText.replace(/\([^)]*\)/g, '');
-  const raw = [withoutParens, ...parenContents].join(',');
-  return raw
-    .split(/[,.]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 export async function GET() {
   const apiKey = process.env.KMA_API_KEY;
   if (!apiKey) {
@@ -113,9 +103,11 @@ export async function GET() {
     const item = Array.isArray(itemsRaw) ? itemsRaw[0] : itemsRaw;
     if (!item) throw new Error('특보 현황 데이터 없음 (응답 형식 확인 필요)');
 
-    const t6: string = item.t6 ?? '';
-    const tmFc: string = item.tmFc ?? '';
-    const tmEf: string = item.tmEf ?? '';
+    // 기상청 응답은 tmFc를 따옴표 없는 숫자로 주는 경우가 있어(예: 202608031000)
+    // 반드시 문자열로 정규화한다. 그대로 두면 클라이언트에서 .slice() 호출 시 죽는다.
+    const t6 = String(item.t6 ?? '');
+    const tmFc = String(item.tmFc ?? '');
+    const tmEf = String(item.tmEf ?? '');
 
     const entries: WarningEntry[] = [];
     if (!/^\s*o?\s*없음\s*$/.test(t6)) {
@@ -130,12 +122,7 @@ export async function GET() {
               ? '주의보'
               : '특보';
 
-        const districtSet = new Set<string>();
-        for (const token of tokenizeAreaText(areaText)) {
-          for (const district of findDistrictsForAreaName(token)) {
-            districtSet.add(district);
-          }
-        }
+        const districtSet = new Set(resolveAreaText(areaText));
         const provinceSet = new Set<string>();
         for (const district of districtSet) {
           const province = DISTRICT_PROVINCE[district];
