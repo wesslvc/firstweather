@@ -186,6 +186,15 @@ html, body {
   transform-origin: center center;
 }
 
+/* 지역 클릭으로 이동할 때만 부드럽게 (핀치/드래그 중에는 즉시 반응해야 함) */
+.zoom-content.smooth {
+  transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoom-content.smooth { transition: none; }
+}
+
 .zoom-controls {
   position: absolute;
   right: 10px;

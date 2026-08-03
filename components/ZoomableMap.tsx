@@ -1,17 +1,20 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface ZoomableMapProps {
   children: React.ReactNode;
+  /** 이 id를 가진 SVG 요소로 확대해 중앙에 맞춘다 */
+  focusId?: string | null;
 }
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 
-export default function ZoomableMap({ children }: ZoomableMapProps) {
+export default function ZoomableMap({ children, focusId }: ZoomableMapProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const [smooth, setSmooth] = useState(false);
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   const lastPinchDist = useRef<number | null>(null);
   const lastPan = useRef<{ x: number; y: number } | null>(null);
@@ -38,6 +41,51 @@ export default function ZoomableMap({ children }: ZoomableMapProps) {
       return clamp({ scale: nextScale, x, y });
     });
   }, [clamp]);
+
+  // 선택된 지역이 화면 가운데 오도록 확대한다.
+  // 현재 transform이 s/x/y일 때 화면상의 점은  center + p*s + (x,y) 이므로
+  // 역산해 콘텐츠 기준 좌표 p를 구한 뒤, 새 배율에서 p가 중앙에 오도록 (x,y)를 다시 잡는다.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    // 선택이 해제되면 원래 배율로 되돌린다
+    if (!focusId) {
+      setSmooth(true);
+      setTransform({ scale: 1, x: 0, y: 0 });
+      const reset = setTimeout(() => setSmooth(false), 420);
+      return () => clearTimeout(reset);
+    }
+
+    const target = viewport.querySelector<SVGGraphicsElement>(`#${CSS.escape(focusId)}`);
+    if (!target) return;
+
+    const viewRect = viewport.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    setTransform((prev) => {
+      const cx = viewRect.left + viewRect.width / 2;
+      const cy = viewRect.top + viewRect.height / 2;
+      const px = (rect.left + rect.width / 2 - cx - prev.x) / prev.scale;
+      const py = (rect.top + rect.height / 2 - cy - prev.y) / prev.scale;
+
+      // 작은 지역일수록 더 크게. 뷰포트의 약 45%를 차지하도록 맞춘다.
+      const naturalW = rect.width / prev.scale;
+      const naturalH = rect.height / prev.scale;
+      const fit = Math.min(
+        (viewRect.width * 0.45) / Math.max(naturalW, 1),
+        (viewRect.height * 0.45) / Math.max(naturalH, 1)
+      );
+      const scale = Math.min(MAX_SCALE, Math.max(2, fit));
+
+      return { scale, x: -px * scale, y: -py * scale };
+    });
+
+    setSmooth(true);
+    const timer = setTimeout(() => setSmooth(false), 420);
+    return () => clearTimeout(timer);
+  }, [focusId]);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -114,7 +162,7 @@ export default function ZoomableMap({ children }: ZoomableMapProps) {
         onPointerLeave={endPointer}
       >
         <div
-          className="zoom-content"
+          className={`zoom-content${smooth ? ' smooth' : ''}`}
           style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
         >
           {children}

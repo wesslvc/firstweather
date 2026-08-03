@@ -42,6 +42,7 @@ export default function Home() {
   const [fetchedAt, setFetchedAt] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const mapWrapRef = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -121,6 +122,16 @@ export default function Home() {
     () => (selectedKey === ALL ? [] : entries.filter((e) => e.typeKey === selectedKey)),
     [entries, selectedKey]
   );
+
+  // 지역을 누르면 상세 패널이 보이도록 내려준다.
+  // (지도 확대 애니메이션이 시작된 뒤 움직여야 자연스럽다)
+  useEffect(() => {
+    if (!selectedDistrict) return;
+    const timer = setTimeout(() => {
+      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [selectedDistrict]);
 
   // 지역을 고르지 않았을 때 아래에 쭉 보여줄 목록
   const listEntries = selectedKey === ALL ? entries : activeEntriesForType;
@@ -202,7 +213,7 @@ export default function Home() {
         <>
           <div className="map-card">
             <div ref={mapWrapRef}>
-              <ZoomableMap>
+              <ZoomableMap focusId={selectedDistrict}>
                 <KoreaMap
                   districtFills={districtFills}
                   selectedId={selectedDistrict}
@@ -252,7 +263,7 @@ export default function Home() {
           </div>
 
           {selectedDistrict && (
-            <div className="detail-panel">
+            <div className="detail-panel" ref={detailRef}>
               <div className="detail-panel-header">
                 <span className="detail-panel-title">{selectedDistrictLabel}</span>
                 <button className="detail-close-btn" onClick={() => setSelectedDistrict(null)}>✕</button>
