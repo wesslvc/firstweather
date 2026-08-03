@@ -1,41 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
 @import "tailwindcss";
 
 :root {
-  --color-bg:        #ffffff;
-  --color-text:      #000000;
-  --color-muted:     #555555;
-  --color-divider:   #000000;
-  --color-footer:    #aaaaaa;
-  --color-skeleton1: #ebebeb;
-  --color-skeleton2: #dddddd;
-  --color-btn-bg:    transparent;
-  --color-btn-text:  #000000;
-  --color-btn-border:#000000;
-  --color-btn-hover-bg:   #000000;
-  --color-btn-hover-text: #ffffff;
-  --color-select-arrow: %23000000;
-
-  --color-map-empty: #c7c7c7;
+  --color-bg:        #f5f6f8;
+  --color-surface:   #ffffff;
+  --color-text:      #14151a;
+  --color-muted:     #6b7280;
+  --color-border:    #e2e4e9;
+  --color-map-empty: #d9dbe0;
+  --color-accent:    #14151a;
+  --color-accent-text: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg:        #0d0d0d;
-    --color-text:      #f0f0f0;
-    --color-muted:     #888888;
-    --color-divider:   #333333;
-    --color-footer:    #555555;
-    --color-skeleton1: #1e1e1e;
-    --color-skeleton2: #2a2a2a;
-    --color-btn-bg:    transparent;
-    --color-btn-text:  #f0f0f0;
-    --color-btn-border:#f0f0f0;
-    --color-btn-hover-bg:   #f0f0f0;
-    --color-btn-hover-text: #0d0d0d;
-    --color-select-arrow: %23f0f0f0;
-
-    --color-map-empty: #3a3a3a;
+    --color-bg:        #0b0c0f;
+    --color-surface:   #17181d;
+    --color-text:      #f2f3f5;
+    --color-muted:     #9aa0ac;
+    --color-border:    #2a2c33;
+    --color-map-empty: #33353c;
+    --color-accent:    #f2f3f5;
+    --color-accent-text: #0b0c0f;
   }
 }
 
@@ -44,24 +29,113 @@
 html, body {
   background-color: var(--color-bg);
   color: var(--color-text);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: var(--font-noto), sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-.font-display {
-  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
-  letter-spacing: 0.02em;
+.app-shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.4rem 1rem 3rem;
 }
 
-.font-label {
-  font-family: 'Barlow Condensed', 'Noto Sans KR', sans-serif;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+/* ── 헤더 ── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
 }
 
-/* ── 지도 ── */
-.map-frame {
-  border: 1.5px solid var(--color-divider);
+.app-title {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.app-subtitle {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  margin-top: 0.15rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.icon-btn:hover:not(:disabled) { background: var(--color-border); }
+.icon-btn:disabled { opacity: 0.4; cursor: default; }
+
+.icon-btn.primary {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+
+/* ── 특보 종류 선택 칩 ── */
+.type-chips {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding: 0.2rem 0 0.9rem;
+  scrollbar-width: none;
+}
+.type-chips::-webkit-scrollbar { display: none; }
+
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.type-chip.active {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.type-chip .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.type-chip.gradient-dot .dot {
+  background: conic-gradient(from 0deg, #ff5da2, #ffd23f, #4dd0e1, #7c5cff, #ff5da2);
+}
+
+/* ── 지도 카드 ── */
+.map-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
   padding: 1rem;
 }
 
@@ -71,128 +145,139 @@ html, body {
   display: block;
 }
 
+.kr-map-selected {
+  filter: brightness(1.12);
+}
+
 .map-skeleton {
   width: 100%;
   aspect-ratio: 509 / 716;
+  border-radius: 10px;
 }
 
 /* ── 범례 ── */
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .legend-item {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 600;
   font-size: 0.75rem;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--color-muted);
 }
 
 .legend-swatch {
   display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--color-divider);
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 
-/* ── 특보 상세 목록 ── */
+/* ── 지역 상세 패널 ── */
+.detail-panel {
+  margin-top: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+}
+
+.detail-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+}
+
+.detail-panel-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.detail-close-btn {
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.detail-row:first-of-type { border-top: none; }
+
+.level-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ── 특보 상세 목록 (선택 종류) ── */
+.warning-list {
+  margin-top: 1rem;
+}
+
+.warning-list-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+}
+
 .warning-detail-row {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  padding: 0.6rem 0;
-  border-top: 1px solid var(--color-divider);
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--color-border);
   font-size: 0.85rem;
 }
 
-.warning-detail-row:last-child {
-  border-bottom: 1px solid var(--color-divider);
+.empty-note {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin-top: 1rem;
 }
 
-.grade-badge {
-  display: inline-block;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700;
-  font-size: 0.6rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 2px;
-  flex-shrink: 0;
+.meta-line {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-top: 0.8rem;
 }
 
-/* ── 컨트롤 바 ── */
-.control-bar {
-  display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-  margin-top: 1.4rem;
-  margin-bottom: 1.1rem;
+.app-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  color: var(--color-muted);
 }
-
-.location-select {
-  flex: 1;
-  font-family: 'Barlow Condensed', 'Noto Sans KR', sans-serif;
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.1em;
-  border: 1.5px solid var(--color-btn-border);
-  padding: 9px 28px 9px 12px;
-  background-color: var(--color-btn-bg);
-  color: var(--color-btn-text);
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23000'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  min-width: 0;
-}
-
-.location-select:focus { outline: none; }
-
-@media (prefers-color-scheme: dark) {
-  .location-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23f0f0f0'/%3E%3C/svg%3E");
-  }
-  .location-select option { background: #1a1a1a; color: #f0f0f0; }
-}
-
-.refresh-btn {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border: 1.5px solid var(--color-btn-border);
-  padding: 9px 18px;
-  background: var(--color-btn-bg);
-  color: var(--color-btn-text);
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: var(--color-btn-hover-bg);
-  color: var(--color-btn-hover-text);
-}
-
-.refresh-btn:disabled { opacity: 0.4; cursor: default; }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--color-skeleton1) 25%, var(--color-skeleton2) 50%, var(--color-skeleton1) 75%);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-map-empty) 50%, var(--color-border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: 2px;
   display: inline-block;
 }
 

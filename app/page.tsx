@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import KoreaMap from '@/components/KoreaMap';
-import { WARNING_TYPES, colorForLevel, findWarningType } from '@/lib/warningTypes';
+import { WARNING_TYPES, colorForLevel, warningTypeByKey } from '@/lib/warningTypes';
+import { PROVINCES } from '@/lib/regionMap';
 import type { WarningEntry } from '@/app/api/warnings/route';
 
 interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: WarningEntry[] }; error?: string; }
+
+const ALL = 'ALL';
+const LEVEL_ORDER: Record<string, number> = { 경보: 2, 특보: 1, 주의보: 0 };
 
 function formatKST(yyyymmddhhmm: string): string {
   if (!yyyymmddhhmm || yyyymmddhhmm.length < 12) return '';
@@ -21,13 +25,15 @@ function currentKSTTime(): string {
 }
 
 export default function Home() {
-  const [typeKey, setTypeKey] = useState(WARNING_TYPES[0].key);
+  const [selectedKey, setSelectedKey] = useState<string>(ALL);
   const [entries, setEntries] = useState<WarningEntry[]>([]);
   const [tmFc, setTmFc] = useState('');
   const [tmEf, setTmEf] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState('');
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const mapWrapRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -56,137 +62,208 @@ export default function Home() {
     fetchData();
   }, [fetchData]);
 
-  const selectedType = WARNING_TYPES.find((t) => t.key === typeKey) ?? WARNING_TYPES[0];
+  const activeTypeKeys = useMemo(() => new Set(entries.map((e) => e.typeKey)), [entries]);
 
-  const activeEntriesForType = useMemo(
-    () => entries.filter((e) => e.typeKey === typeKey),
-    [entries, typeKey]
-  );
-
-  const provinceColors = useMemo(() => {
-    const colors: Record<string, string> = {};
-    for (const entry of activeEntriesForType) {
-      const color = colorForLevel(selectedType.color, entry.level);
+  // province id -> { typeKey -> 최고심도 entry } (전체보기용 집계)
+  const byProvince = useMemo(() => {
+    const map = new Map<string, Map<string, WarningEntry>>();
+    for (const entry of entries) {
       for (const province of entry.provinces) {
-        // 경보가 주의보보다 우선(더 진한 색)하도록 덮어씀
-        if (entry.level === '경보' || !colors[province]) {
-          colors[province] = color;
+        if (!map.has(province)) map.set(province, new Map());
+        const typeMap = map.get(province)!;
+        const existing = typeMap.get(entry.typeKey);
+        if (!existing || LEVEL_ORDER[entry.level] > LEVEL_ORDER[existing.level]) {
+          typeMap.set(entry.typeKey, entry);
         }
       }
     }
-    return colors;
-  }, [activeEntriesForType, selectedType]);
+    return map;
+  }, [entries]);
 
-  const otherActiveTypes = useMemo(() => {
-    const keys = new Set(entries.map((e) => e.typeKey));
-    keys.delete(typeKey);
-    return WARNING_TYPES.filter((t) => keys.has(t.key));
-  }, [entries, typeKey]);
+  const provinceFills = useMemo(() => {
+    const fills: Record<string, string[]> = {};
+    if (selectedKey === ALL) {
+      for (const [province, typeMap] of byProvince) {
+        fills[province] = WARNING_TYPES.filter((t) => typeMap.has(t.key)).map((t) => {
+          const e = typeMap.get(t.key)!;
+          return colorForLevel(t.color, e.level);
+        });
+      }
+    } else {
+      const type = warningTypeByKey(selectedKey);
+      if (type) {
+        for (const [province, typeMap] of byProvince) {
+          const e = typeMap.get(selectedKey);
+          if (e) fills[province] = [colorForLevel(type.color, e.level)];
+        }
+      }
+    }
+    return fills;
+  }, [byProvince, selectedKey]);
+
+  const activeEntriesForType = useMemo(
+    () => (selectedKey === ALL ? [] : entries.filter((e) => e.typeKey === selectedKey)),
+    [entries, selectedKey]
+  );
+
+  const selectedProvinceEntries = useMemo(() => {
+    if (!selectedProvince) return [];
+    return entries.filter((e) => e.provinces.includes(selectedProvince));
+  }, [entries, selectedProvince]);
+
+  const selectedProvinceLabel = PROVINCES.find((p) => p.id === selectedProvince)?.label ?? '';
+
+  const handleDownload = () => {
+    const svg = mapWrapRef.current?.querySelector('svg');
+    if (!svg) return;
+    const serialized = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([serialized], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `기상특보_${selectedKey === ALL ? '전체' : selectedKey}_${tmFc || 'map'}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const selectedType = selectedKey === ALL ? null : warningTypeByKey(selectedKey) ?? null;
 
   return (
-    <main style={{ maxWidth: 640, margin: '0 auto', padding: '2rem 1.4rem 4rem' }}>
-      <header style={{ marginBottom: '2rem' }}>
-        <p className="font-label" style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginBottom: '0.15rem' }}>
-          기상청 기상특보
-        </p>
-        <h1 className="font-display" style={{ fontSize: 'clamp(3.2rem, 13vw, 5rem)', lineHeight: 0.88, letterSpacing: '0.01em' }}>
-          WARNING
-        </h1>
-
-        <div className="control-bar">
-          <select className="location-select" value={typeKey} onChange={(e) => setTypeKey(e.target.value)}>
-            {WARNING_TYPES.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-                {entries.some((e) => e.typeKey === t.key) ? ' ●' : ''}
-              </option>
-            ))}
-          </select>
-          <button className="refresh-btn" onClick={fetchData} disabled={loading}>
-            {loading ? '···' : '↺ 새로고침'}
+    <main className="app-shell">
+      <div className="app-header">
+        <div>
+          <div className="app-title">기상특보 지도</div>
+          <div className="app-subtitle">기상청 기상특보 조회서비스 · 시/도 단위</div>
+        </div>
+        <div className="header-actions">
+          <button className="icon-btn" onClick={handleDownload} disabled={loading || !!error}>
+            지도 저장
+          </button>
+          <button className="icon-btn primary" onClick={fetchData} disabled={loading}>
+            {loading ? '···' : '새로고침'}
           </button>
         </div>
+      </div>
 
-        <p className="font-label" style={{ fontSize: '0.58rem', color: 'var(--color-muted)', marginTop: '0.2rem' }}>
-          *기상청 기상특보 조회서비스(특보현황조회) — 시/도 단위 표시
-        </p>
-      </header>
+      <div className="type-chips">
+        <button
+          className={`type-chip gradient-dot${selectedKey === ALL ? ' active' : ''}`}
+          onClick={() => setSelectedKey(ALL)}
+        >
+          <span className="dot" />
+          전체
+        </button>
+        {WARNING_TYPES.map((t) => (
+          <button
+            key={t.code}
+            className={`type-chip${selectedKey === t.key ? ' active' : ''}`}
+            onClick={() => setSelectedKey(t.key)}
+          >
+            <span className="dot" style={{ background: t.color }} />
+            {t.label}
+            {activeTypeKeys.has(t.key) && ' ●'}
+          </button>
+        ))}
+      </div>
 
       {error && (
-        <p style={{ fontSize: '0.85rem', color: '#cc0000', padding: '1rem 0', fontFamily: 'Barlow Condensed, sans-serif' }}>
-          {error}
-        </p>
+        <p style={{ fontSize: '0.85rem', color: '#e5484d', padding: '0.6rem 0' }}>{error}</p>
       )}
 
       {loading ? (
-        <div className="map-skeleton skeleton" />
+        <div className="map-card">
+          <div className="map-skeleton skeleton" />
+        </div>
       ) : !error ? (
         <>
-          <div className="map-frame">
-            <KoreaMap colors={provinceColors} />
+          <div className="map-card">
+            <div ref={mapWrapRef}>
+              <KoreaMap
+                provinceFills={provinceFills}
+                selectedId={selectedProvince}
+                onProvinceClick={setSelectedProvince}
+              />
+            </div>
+
+            <div className="legend">
+              {selectedKey === ALL ? (
+                WARNING_TYPES.map((t) => (
+                  <span className="legend-item" key={t.code}>
+                    <span className="legend-swatch" style={{ background: t.color }} />
+                    {t.label}
+                  </span>
+                ))
+              ) : (
+                <>
+                  <span className="legend-item">
+                    <span className="legend-swatch" style={{ background: colorForLevel(selectedType!.color, '주의보') }} />
+                    {selectedType!.label} 주의보
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-swatch" style={{ background: selectedType!.color }} />
+                    {selectedType!.label} 경보
+                  </span>
+                </>
+              )}
+              <span className="legend-item">
+                <span className="legend-swatch" style={{ background: 'var(--color-map-empty)' }} />
+                발표없음
+              </span>
+            </div>
+
+            <p className="meta-line">
+              발표 {formatKST(tmFc)} · 발효 {formatKST(tmEf)}
+              {fetchedAt && ` · 조회 ${fetchedAt} KST`} · 지역을 클릭하면 상세 특보를 볼 수 있습니다
+            </p>
           </div>
 
-          {/* 범례 */}
-          <div className="legend">
-            <span className="legend-item">
-              <span className="legend-swatch" style={{ background: colorForLevel(selectedType.color, '주의보') }} />
-              {selectedType.label} 주의보
-            </span>
-            <span className="legend-item">
-              <span className="legend-swatch" style={{ background: colorForLevel(selectedType.color, '경보') }} />
-              {selectedType.label} 경보
-            </span>
-            <span className="legend-item">
-              <span className="legend-swatch" style={{ background: '#c7c7c7' }} />
-              발표없음
-            </span>
-          </div>
+          {selectedProvince && (
+            <div className="detail-panel">
+              <div className="detail-panel-header">
+                <span className="detail-panel-title">{selectedProvinceLabel}</span>
+                <button className="detail-close-btn" onClick={() => setSelectedProvince(null)}>✕</button>
+              </div>
+              {selectedProvinceEntries.length > 0 ? (
+                selectedProvinceEntries.map((e, i) => {
+                  const type = warningTypeByKey(e.typeKey);
+                  return (
+                    <div key={i} className="detail-row">
+                      <span className="level-badge" style={{ background: type ? colorForLevel(type.color, e.level) : '#888' }}>
+                        {e.label}
+                      </span>
+                      <span style={{ color: 'var(--color-muted)' }}>{e.areaText}</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>현재 발효 중인 특보가 없습니다.</p>
+              )}
+            </div>
+          )}
 
-          <p className="font-label" style={{ fontSize: '0.6rem', color: 'var(--color-muted)', marginTop: '1rem', letterSpacing: '0.1em' }}>
-            발표 {formatKST(tmFc)} · 발효 {formatKST(tmEf)}
-            {fetchedAt && ` · 조회 ${fetchedAt} KST`}
-          </p>
-
-          {activeEntriesForType.length > 0 && (
-            <section style={{ marginTop: '1.6rem' }}>
-              <p className="font-label" style={{ fontSize: '0.6rem', color: 'var(--color-muted)', marginBottom: '0.5rem', letterSpacing: '0.14em' }}>
-                {selectedType.label} 특보 상세
-              </p>
+          {selectedKey !== ALL && activeEntriesForType.length > 0 && (
+            <div className="warning-list">
+              <div className="warning-list-title">{selectedType!.label} 특보 상세</div>
               {activeEntriesForType.map((e, i) => (
                 <div key={i} className="warning-detail-row">
-                  <span className={`grade-badge`} style={{ background: colorForLevel(selectedType.color, e.level), color: '#fff' }}>
+                  <span className="level-badge" style={{ background: colorForLevel(selectedType!.color, e.level) }}>
                     {e.level}
                   </span>
                   <span>{e.areaText}</span>
                 </div>
               ))}
-            </section>
-          )}
-
-          {otherActiveTypes.length > 0 && (
-            <section style={{ marginTop: '1.6rem' }}>
-              <p className="font-label" style={{ fontSize: '0.6rem', color: 'var(--color-muted)', marginBottom: '0.5rem', letterSpacing: '0.14em' }}>
-                그 밖에 발효 중인 특보
-              </p>
-              <p style={{ fontSize: '0.85rem' }}>
-                {otherActiveTypes.map((t) => t.label).join(' · ')}
-              </p>
-            </section>
+            </div>
           )}
 
           {entries.length === 0 && (
-            <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '1.6rem' }}>
-              현재 전국에 발효 중인 기상특보가 없습니다.
-            </p>
+            <p className="empty-note">현재 전국에 발효 중인 기상특보가 없습니다.</p>
           )}
         </>
       ) : null}
 
-      <footer style={{ marginTop: '2.4rem', borderTop: '1px solid var(--color-divider)', paddingTop: '1rem' }}>
-        <p className="font-label" style={{ fontSize: '0.55rem', color: 'var(--color-footer)', letterSpacing: '0.1em' }}>
-          출처: 기상청 기상자료개방포털 (기상특보 조회서비스)
-        </p>
-      </footer>
+      <div className="app-footer">
+        출처: 기상청 기상자료개방포털 (기상특보 조회서비스)
+      </div>
     </main>
   );
 }
