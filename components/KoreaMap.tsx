@@ -2,18 +2,18 @@
 
 import { forwardRef, useEffect, useRef } from 'react';
 import { KOREA_MAP_SVG } from '@/lib/mapSvg';
-import { PROVINCES } from '@/lib/regionMap';
+import { DISTRICTS } from '@/lib/regionMap';
 
 interface KoreaMapProps {
-  // province SVG id -> 1개 이상의 색상. 2개 이상이면 그라데이션으로 표시
-  provinceFills: Record<string, string[]>;
+  // 시/군/구 SVG id -> 1개 이상의 색상. 2개 이상이면 그라데이션으로 표시
+  districtFills: Record<string, string[]>;
   defaultFill?: string;
   selectedId?: string | null;
-  onProvinceClick?: (id: string) => void;
+  onDistrictClick?: (id: string) => void;
 }
 
 const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
-  { provinceFills, defaultFill = 'var(--color-map-empty)', selectedId, onProvinceClick },
+  { districtFills, defaultFill = 'var(--color-map-empty)', selectedId, onDistrictClick },
   forwardedRef
 ) {
   const localRef = useRef<HTMLDivElement>(null);
@@ -39,9 +39,9 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
     if (!svg) return;
 
     const map = new Map<string, SVGGElement>();
-    for (const province of PROVINCES) {
-      const el = svg.querySelector<SVGGElement>(`#${CSS.escape(province.id)}`);
-      if (el) map.set(province.id, el);
+    for (const district of DISTRICTS) {
+      const el = svg.querySelector<SVGGElement>(`#${CSS.escape(district.id)}`);
+      if (el) map.set(district.id, el);
     }
     elMapRef.current = map;
 
@@ -58,19 +58,19 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
     const defs = defsRef.current;
     if (defs) defs.innerHTML = '';
 
-    for (const province of PROVINCES) {
-      const el = elMapRef.current.get(province.id);
+    for (const district of DISTRICTS) {
+      const el = elMapRef.current.get(district.id);
       if (!el) continue;
 
-      const colors = provinceFills[province.id];
-      const cursor = onProvinceClick ? 'pointer' : 'default';
+      const colors = districtFills[district.id];
+      const cursor = onDistrictClick ? 'pointer' : 'default';
 
       if (!colors || colors.length === 0) {
         el.setAttribute('style', `fill:${defaultFill};cursor:${cursor}`);
       } else if (colors.length === 1) {
         el.setAttribute('style', `fill:${colors[0]};cursor:${cursor}`);
       } else if (defs) {
-        const gradId = `grad-${province.id}`;
+        const gradId = `grad-${district.id}`;
         const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
         grad.setAttribute('id', gradId);
         grad.setAttribute('x1', '0%');
@@ -87,16 +87,16 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
         el.setAttribute('style', `fill:url(#${gradId});cursor:${cursor}`);
       }
 
-      el.classList.toggle('kr-map-selected', selectedId === province.id);
+      el.classList.toggle('kr-map-selected', selectedId === district.id);
     }
-  }, [provinceFills, defaultFill, selectedId, onProvinceClick]);
+  }, [districtFills, defaultFill, selectedId, onDistrictClick]);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!onProvinceClick) return;
+    if (!onDistrictClick) return;
     const target = e.target as Element;
     for (const [id, el] of elMapRef.current) {
       if (el.contains(target)) {
-        onProvinceClick(id);
+        onDistrictClick(id);
         return;
       }
     }

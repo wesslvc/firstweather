@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { findProvinceForAreaName } from '@/lib/regionMap';
+import { findDistrictsForAreaName, DISTRICT_PROVINCE } from '@/lib/regionMap';
 import { findWarningType, type WarningLevel } from '@/lib/warningTypes';
 
 const BASE_URL = 'http://apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
@@ -12,7 +12,8 @@ export interface WarningEntry {
   typeKey: string;           // 예: "폭염"
   level: WarningLevel;
   areaText: string;          // 원문 지역 설명
-  provinces: string[];       // 매칭된 시/도 SVG id 목록
+  districts: string[];       // 매칭된 시/군/구 SVG id 목록
+  provinces: string[];       // districts가 속한 시/도 id 목록 (중복 제거)
 }
 
 // 통보문 항목은 보통 "XX주의보"/"XX경보" 형태지만, 열대야처럼 단계 구분 없이
@@ -88,9 +89,15 @@ export async function GET() {
               ? '주의보'
               : '특보';
 
-        const provinceSet = new Set<string>();
+        const districtSet = new Set<string>();
         for (const token of tokenizeAreaText(areaText)) {
-          const province = findProvinceForAreaName(token);
+          for (const district of findDistrictsForAreaName(token)) {
+            districtSet.add(district);
+          }
+        }
+        const provinceSet = new Set<string>();
+        for (const district of districtSet) {
+          const province = DISTRICT_PROVINCE[district];
           if (province) provinceSet.add(province);
         }
 
@@ -99,6 +106,7 @@ export async function GET() {
           typeKey: type.key,
           level,
           areaText,
+          districts: [...districtSet],
           provinces: [...provinceSet],
         });
       }

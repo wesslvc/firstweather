@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import KoreaMap from '@/components/KoreaMap';
 import ZoomableMap from '@/components/ZoomableMap';
 import { WARNING_TYPES, LEVEL_ORDER, colorForLevel, warningTypeByKey } from '@/lib/warningTypes';
-import { PROVINCES } from '@/lib/regionMap';
+import { DISTRICTS, PROVINCES } from '@/lib/regionMap';
 import type { WarningEntry } from '@/app/api/warnings/route';
 
 interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: WarningEntry[] }; error?: string; }
@@ -32,7 +32,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState('');
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const mapWrapRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
@@ -71,13 +71,13 @@ export default function Home() {
 
   const activeTypeKeys = useMemo(() => new Set(entries.map((e) => e.typeKey)), [entries]);
 
-  // province id -> { typeKey -> 최고심도 entry } (전체보기용 집계)
-  const byProvince = useMemo(() => {
+  // district id -> { typeKey -> 최고심도 entry } (전체보기용 집계)
+  const byDistrict = useMemo(() => {
     const map = new Map<string, Map<string, WarningEntry>>();
     for (const entry of entries) {
-      for (const province of entry.provinces) {
-        if (!map.has(province)) map.set(province, new Map());
-        const typeMap = map.get(province)!;
+      for (const district of entry.districts) {
+        if (!map.has(district)) map.set(district, new Map());
+        const typeMap = map.get(district)!;
         const existing = typeMap.get(entry.typeKey);
         if (!existing || LEVEL_ORDER[entry.level] > LEVEL_ORDER[existing.level]) {
           typeMap.set(entry.typeKey, entry);
@@ -87,11 +87,11 @@ export default function Home() {
     return map;
   }, [entries]);
 
-  const provinceFills = useMemo(() => {
+  const districtFills = useMemo(() => {
     const fills: Record<string, string[]> = {};
     if (selectedKey === ALL) {
-      for (const [province, typeMap] of byProvince) {
-        fills[province] = WARNING_TYPES.filter((t) => typeMap.has(t.key)).map((t) => {
+      for (const [district, typeMap] of byDistrict) {
+        fills[district] = WARNING_TYPES.filter((t) => typeMap.has(t.key)).map((t) => {
           const e = typeMap.get(t.key)!;
           return colorForLevel(t.color, e.level);
         });
@@ -99,26 +99,30 @@ export default function Home() {
     } else {
       const type = warningTypeByKey(selectedKey);
       if (type) {
-        for (const [province, typeMap] of byProvince) {
+        for (const [district, typeMap] of byDistrict) {
           const e = typeMap.get(selectedKey);
-          if (e) fills[province] = [colorForLevel(type.color, e.level)];
+          if (e) fills[district] = [colorForLevel(type.color, e.level)];
         }
       }
     }
     return fills;
-  }, [byProvince, selectedKey]);
+  }, [byDistrict, selectedKey]);
 
   const activeEntriesForType = useMemo(
     () => (selectedKey === ALL ? [] : entries.filter((e) => e.typeKey === selectedKey)),
     [entries, selectedKey]
   );
 
-  const selectedProvinceEntries = useMemo(() => {
-    if (!selectedProvince) return [];
-    return entries.filter((e) => e.provinces.includes(selectedProvince));
-  }, [entries, selectedProvince]);
+  const selectedDistrictEntries = useMemo(() => {
+    if (!selectedDistrict) return [];
+    return entries.filter((e) => e.districts.includes(selectedDistrict));
+  }, [entries, selectedDistrict]);
 
-  const selectedProvinceLabel = PROVINCES.find((p) => p.id === selectedProvince)?.label ?? '';
+  const selectedDistrictInfo = DISTRICTS.find((d) => d.id === selectedDistrict);
+  const selectedDistrictProvinceLabel = PROVINCES.find((p) => p.id === selectedDistrictInfo?.provinceId)?.label ?? '';
+  const selectedDistrictLabel = selectedDistrictInfo
+    ? `${selectedDistrictProvinceLabel} ${selectedDistrictInfo.label}`
+    : '';
 
   const handleDownload = () => {
     const svg = mapWrapRef.current?.querySelector('svg');
@@ -140,7 +144,7 @@ export default function Home() {
       <div className="app-header">
         <div>
           <div className="app-title">기상특보 지도</div>
-          <div className="app-subtitle">기상청 기상특보 조회서비스 · 시/도 단위</div>
+          <div className="app-subtitle">기상청 기상특보 조회서비스 · 시/군/구 단위</div>
         </div>
         <div className="header-actions">
           <button className="icon-btn" onClick={handleDownload} disabled={loading || !!error}>
@@ -188,9 +192,9 @@ export default function Home() {
             <div ref={mapWrapRef}>
               <ZoomableMap>
                 <KoreaMap
-                  provinceFills={provinceFills}
-                  selectedId={selectedProvince}
-                  onProvinceClick={setSelectedProvince}
+                  districtFills={districtFills}
+                  selectedId={selectedDistrict}
+                  onDistrictClick={setSelectedDistrict}
                 />
               </ZoomableMap>
             </div>
@@ -233,14 +237,14 @@ export default function Home() {
             </p>
           </div>
 
-          {selectedProvince && (
+          {selectedDistrict && (
             <div className="detail-panel">
               <div className="detail-panel-header">
-                <span className="detail-panel-title">{selectedProvinceLabel}</span>
-                <button className="detail-close-btn" onClick={() => setSelectedProvince(null)}>✕</button>
+                <span className="detail-panel-title">{selectedDistrictLabel}</span>
+                <button className="detail-close-btn" onClick={() => setSelectedDistrict(null)}>✕</button>
               </div>
-              {selectedProvinceEntries.length > 0 ? (
-                selectedProvinceEntries.map((e, i) => {
+              {selectedDistrictEntries.length > 0 ? (
+                selectedDistrictEntries.map((e, i) => {
                   const type = warningTypeByKey(e.typeKey);
                   return (
                     <div key={i} className="detail-row">
