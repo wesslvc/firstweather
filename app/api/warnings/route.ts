@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server';
 import { findDistrictsForAreaName, DISTRICT_PROVINCE } from '@/lib/regionMap';
 import { findWarningType, type WarningLevel } from '@/lib/warningTypes';
 
-const BASE_URL = 'http://apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
+const API_PATH = '//apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
 const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
 
 export const dynamic = 'force-dynamic';
+// 기상청/공공데이터포털 서버는 국내에 있어, 기본값인 미국 리전에서 호출하면
+// 왕복 지연이 커져 타임아웃이 발생한다. 함수를 서울 리전에서 실행시킨다.
+export const preferredRegion = 'icn1';
+export const maxDuration = 30;
 
 export interface WarningEntry {
   label: string;             // 예: "폭염경보", "폭염중대경보"
@@ -28,6 +32,37 @@ function parseT6(raw: string): Array<{ label: string; areaText: string }> {
     entries.push({ label: m[1], areaText: m[2].trim() });
   }
   return entries;
+}
+
+async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// data.go.kr는 https/http를 모두 서비스하지만 환경에 따라 한쪽이 막히거나 느릴 수 있어
+// https를 먼저 시도하고 실패하면 http로 재시도한다.
+async function fetchPwnStatus(query: string): Promise<Response> {
+  const attempts: Array<{ url: string; ms: number }> = [
+    { url: `https:${API_PATH}?${query}`, ms: 12000 },
+    { url: `http:${API_PATH}?${query}`, ms: 10000 },
+  ];
+
+  let lastError: unknown;
+  for (const { url, ms } of attempts) {
+    try {
+      const res = await fetchWithTimeout(url, ms);
+      if (res.ok) return res;
+      lastError = new Error(`기상특보 API HTTP ${res.status}`);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError ?? new Error('기상특보 API 요청 실패');
 }
 
 function tokenizeAreaText(areaText: string): string[] {
@@ -57,16 +92,7 @@ export async function GET() {
       pageNo: '1',
     });
 
-    // KMA 서버가 응답하지 않을 때 무한 대기하지 않도록 타임아웃 설정
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    let res: Response;
-    try {
-      res = await fetch(`${BASE_URL}?${params}`, { cache: 'no-store', signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
-    if (!res.ok) throw new Error(`기상특보 API ${res.status}`);
+    const res = await fetchPwnStatus(params.toString());
 
     // data.go.kr는 인증 오류 등에서 dataType=JSON을 요청해도 XML을 그대로 돌려줄 때가 있어
     // res.json()이 SyntaxError로 죽기 전에 원문을 먼저 확보해 진단 가능하게 함
@@ -137,9 +163,12 @@ export async function GET() {
     );
   } catch (e) {
     console.error('Warning API error:', e);
-    const message = e instanceof Error && e.name === 'AbortError'
-      ? '기상청 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.'
-      : String(e);
-    return NextResponse.json({ error: message }, { status: 500, headers: NO_CACHE_HEADERS });
+    const message =
+      e instanceof Error && e.name === 'AbortError'
+        ? '기상청 서버 연결이 시간 내에 완료되지 않았습니다. 새로고침을 눌러 다시 시도해 주세요.'
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    return NextResponse.json({ error: message }, { status: 502, headers: NO_CACHE_HEADERS });
   }
 }
