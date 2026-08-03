@@ -148,8 +148,13 @@ html, body {
   display: block;
 }
 
+/* 클릭한 지역을 굵은 외곽선으로 확실히 구분 */
 .kr-map-selected {
-  filter: brightness(1.12);
+  stroke: var(--color-text) !important;
+  stroke-width: 2.4 !important;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.45));
 }
 
 .map-skeleton {
@@ -230,6 +235,13 @@ html, body {
   height: 12px;
   border-radius: 3px;
   flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
+
+/* 전체보기에서는 여러 색이 한 지역에 겹쳐 나오므로 경계선을 또렷하게 */
+.korea-map svg .st0 {
+  stroke: var(--color-surface);
+  stroke-width: 0.5;
 }
 
 /* ── 지역 상세 패널 ── */
@@ -275,12 +287,18 @@ html, body {
 
 .level-badge {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
-  color: #fff;
   flex-shrink: 0;
+}
+
+/* 지역 클릭 시: 어떤 특보가 있는지만 배지로 */
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 /* ── 특보 상세 목록 (선택 종류) ── */

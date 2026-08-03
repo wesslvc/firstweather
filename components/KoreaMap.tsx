@@ -77,17 +77,29 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
         grad.setAttribute('y1', '0%');
         grad.setAttribute('x2', '100%');
         grad.setAttribute('y2', '100%');
+        // 색을 부드럽게 섞으면 원래 특보 색을 알아볼 수 없으므로
+        // 경계가 뚜렷한 줄무늬로 나눠 각 색을 그대로 보이게 한다.
         colors.forEach((c, i) => {
-          const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-          stop.setAttribute('offset', `${(i / (colors.length - 1)) * 100}%`);
-          stop.setAttribute('stop-color', c);
-          grad.appendChild(stop);
+          const from = (i / colors.length) * 100;
+          const to = ((i + 1) / colors.length) * 100;
+          for (const offset of [from, to]) {
+            const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+            stop.setAttribute('offset', `${offset}%`);
+            stop.setAttribute('stop-color', c);
+            grad.appendChild(stop);
+          }
         });
         defs.appendChild(grad);
         el.setAttribute('style', `fill:url(#${gradId});cursor:${cursor}`);
       }
 
       el.classList.toggle('kr-map-selected', selectedId === district.id);
+    }
+
+    // 선택한 지역의 테두리가 이웃 지역에 덮이지 않도록 맨 앞으로 올린다
+    if (selectedId) {
+      const el = elMapRef.current.get(selectedId);
+      el?.parentNode?.appendChild(el);
     }
   }, [districtFills, defaultFill, selectedId, onDistrictClick]);
 
