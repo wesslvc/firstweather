@@ -16,10 +16,12 @@ interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: 
 
 const ALL = 'ALL';
 
-function formatKST(yyyymmddhhmm: string): string {
-  if (!yyyymmddhhmm || yyyymmddhhmm.length < 12) return '';
-  const y = yyyymmddhhmm.slice(0, 4), mo = yyyymmddhhmm.slice(4, 6), d = yyyymmddhhmm.slice(6, 8);
-  const h = yyyymmddhhmm.slice(8, 10), mi = yyyymmddhhmm.slice(10, 12);
+// 기상청은 tmFc를 숫자로 줄 때가 있어 어떤 타입이 와도 안전하게 처리한다
+function formatKST(value: string | number | null | undefined): string {
+  const s = value == null ? '' : String(value);
+  if (s.length < 12) return '';
+  const y = s.slice(0, 4), mo = s.slice(4, 6), d = s.slice(6, 8);
+  const h = s.slice(8, 10), mi = s.slice(10, 12);
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const day = days[new Date(`${y}-${mo}-${d}T${h}:${mi}:00+09:00`).getDay()];
   return `${mo}월 ${d}일 (${day}) ${h}:${mi}`;
