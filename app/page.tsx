@@ -1,244 +1,190 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import type { WeatherData, AirQualityData, GradeKey } from '@/lib/types';
-import {
-  GRADE_MAP, GRADE_LABEL, LOCATIONS,
-  weatherIcon, weatherLabel, windDirectionLabel,
-} from '@/lib/types';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import KoreaMap from '@/components/KoreaMap';
+import { WARNING_TYPES, colorForLevel, findWarningType } from '@/lib/warningTypes';
+import type { WarningEntry } from '@/app/api/warnings/route';
 
-interface ApiResult<T> { data?: T; error?: string; }
+interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: WarningEntry[] }; error?: string; }
 
-function GradeBadge({ grade }: { grade: string | null }) {
-  if (!grade) return null;
-  const key = (GRADE_MAP[grade] ?? 'moderate') as GradeKey;
-  return <span className={`grade-badge badge-${key}`}>{GRADE_LABEL[key]}</span>;
-}
-
-function SkeletonRow() {
-  return (
-    <div className="weather-row">
-      <div className="weather-row-label"><span className="skeleton" style={{ width: 80, height: 11 }}>&nbsp;</span></div>
-      <div className="weather-row-right"><span className="skeleton" style={{ width: 55, height: 20 }}>&nbsp;</span></div>
-      <div className="weather-row-title"><span className="skeleton" style={{ width: 180, height: 50 }}>&nbsp;</span></div>
-    </div>
-  );
-}
-
-function AirRow({
-  label, value, grade, unit,
-}: { label: string; value: string | null; grade?: string | null; unit: string }) {
-  if (!value) return null;
-  const gradeKey = grade ? (GRADE_MAP[grade] ?? null) as GradeKey | null : null;
-  return (
-    <div className="weather-row">
-      <div className="weather-row-label">
-        {label}
-        {grade && <GradeBadge grade={grade} />}
-      </div>
-      <div className={`weather-row-right${gradeKey ? ` grade-${gradeKey}` : ''}`}>{unit}</div>
-      <div className={`weather-row-title${gradeKey ? ` grade-${gradeKey}` : ''}`}>{value}</div>
-    </div>
-  );
-}
-
-function formatKSTTime(baseDate: string, baseTime: string): string {
-  if (!baseDate || !baseTime) return '';
-  const y = baseDate.slice(0, 4), m = baseDate.slice(4, 6), d = baseDate.slice(6, 8);
-  const h = baseTime.slice(0, 2), min = baseTime.slice(2, 4);
-  const days = ['일','월','화','수','목','금','토'];
-  const day = days[new Date(`${y}-${m}-${d}T${h}:${min}:00+09:00`).getDay()];
-  return `${m}월 ${d}일 (${day}) ${h}:${min}`;
+function formatKST(yyyymmddhhmm: string): string {
+  if (!yyyymmddhhmm || yyyymmddhhmm.length < 12) return '';
+  const y = yyyymmddhhmm.slice(0, 4), mo = yyyymmddhhmm.slice(4, 6), d = yyyymmddhhmm.slice(6, 8);
+  const h = yyyymmddhhmm.slice(8, 10), mi = yyyymmddhhmm.slice(10, 12);
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const day = days[new Date(`${y}-${mo}-${d}T${h}:${mi}:00+09:00`).getDay()];
+  return `${mo}월 ${d}일 (${day}) ${h}:${mi}`;
 }
 
 function currentKSTTime(): string {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000)
-    .toISOString().slice(11, 16); // "HH:MM"
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(11, 16);
 }
 
 export default function Home() {
-  const [locationIdx, setLocationIdx] = useState(0);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [air, setAir] = useState<AirQualityData | null>(null);
+  const [typeKey, setTypeKey] = useState(WARNING_TYPES[0].key);
+  const [entries, setEntries] = useState<WarningEntry[]>([]);
+  const [tmFc, setTmFc] = useState('');
+  const [tmEf, setTmEf] = useState('');
   const [loading, setLoading] = useState(true);
-  const [wError, setWError] = useState<string | null>(null);
-  const [aError, setAError] = useState<string | null>(null);
-  const [fetchedAt, setFetchedAt] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState('');
 
-  const location = LOCATIONS[locationIdx];
-
-  const fetchData = useCallback(async (loc: typeof LOCATIONS[number]) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    setWError(null);
-    setAError(null);
-    // timestamp bust: Vercel Edge 캐시 방지
-    const t = Date.now();
-    const [wRes, aRes] = await Promise.allSettled([
-      fetch(`/api/weather?nx=${loc.nx}&ny=${loc.ny}&t=${t}`),
-      fetch(`/api/airquality?station=${encodeURIComponent(loc.station)}&t=${t}`),
-    ]);
-
-    if (wRes.status === 'fulfilled' && wRes.value.ok) {
-      const j: ApiResult<WeatherData> = await wRes.value.json();
-      if (j.data) setWeather(j.data); else { setWeather(null); setWError(j.error ?? '날씨 데이터 오류'); }
-    } else {
-      setWeather(null);
-      setWError('날씨 데이터를 가져오지 못했습니다.');
+    setError(null);
+    try {
+      const res = await fetch(`/api/warnings?t=${Date.now()}`);
+      const json: ApiResult = await res.json();
+      if (res.ok && json.data) {
+        setEntries(json.data.entries);
+        setTmFc(json.data.tmFc);
+        setTmEf(json.data.tmEf);
+      } else {
+        setEntries([]);
+        setError(json.error ?? '특보 데이터를 가져오지 못했습니다.');
+      }
+    } catch {
+      setEntries([]);
+      setError('특보 데이터를 가져오지 못했습니다.');
+    } finally {
+      setFetchedAt(currentKSTTime());
+      setLoading(false);
     }
-
-    if (aRes.status === 'fulfilled' && aRes.value.ok) {
-      const j: ApiResult<AirQualityData> = await aRes.value.json();
-      if (j.data) setAir(j.data); else { setAir(null); setAError(j.error ?? '대기질 데이터 오류'); }
-    } else {
-      setAir(null);
-      setAError('대기질 데이터를 가져오지 못했습니다.');
-    }
-
-    setFetchedAt(currentKSTTime());
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchData(location);
-  }, [fetchData, location]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setLocationIdx(Number(e.target.value));
-    setWeather(null);
-    setAir(null);
-  };
+  const selectedType = WARNING_TYPES.find((t) => t.key === typeKey) ?? WARNING_TYPES[0];
 
-  const icon  = weather ? weatherIcon(weather.precipitationType, weather.sky)  : '';
-  const wLabel = weather ? weatherLabel(weather.precipitationType, weather.sky) : '';
-  const windDir = weather ? windDirectionLabel(weather.windDirection) : '';
-  const timeStr = weather ? formatKSTTime(weather.baseDate, weather.baseTime) : '';
+  const activeEntriesForType = useMemo(
+    () => entries.filter((e) => e.typeKey === typeKey),
+    [entries, typeKey]
+  );
+
+  const provinceColors = useMemo(() => {
+    const colors: Record<string, string> = {};
+    for (const entry of activeEntriesForType) {
+      const color = colorForLevel(selectedType.color, entry.level);
+      for (const province of entry.provinces) {
+        // 경보가 주의보보다 우선(더 진한 색)하도록 덮어씀
+        if (entry.level === '경보' || !colors[province]) {
+          colors[province] = color;
+        }
+      }
+    }
+    return colors;
+  }, [activeEntriesForType, selectedType]);
+
+  const otherActiveTypes = useMemo(() => {
+    const keys = new Set(entries.map((e) => e.typeKey));
+    keys.delete(typeKey);
+    return WARNING_TYPES.filter((t) => keys.has(t.key));
+  }, [entries, typeKey]);
 
   return (
-    <main style={{ maxWidth: 540, margin: '0 auto', padding: '2rem 1.4rem 4rem' }}>
+    <main style={{ maxWidth: 640, margin: '0 auto', padding: '2rem 1.4rem 4rem' }}>
       <header style={{ marginBottom: '2rem' }}>
-        {/* 타이틀 */}
         <p className="font-label" style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginBottom: '0.15rem' }}>
-          날씨 &amp; 미세먼지
+          기상청 기상특보
         </p>
         <h1 className="font-display" style={{ fontSize: 'clamp(3.2rem, 13vw, 5rem)', lineHeight: 0.88, letterSpacing: '0.01em' }}>
-          WEATHER
+          WARNING
         </h1>
 
-        {/* 컨트롤 바 */}
         <div className="control-bar">
-          <select className="location-select" value={locationIdx} onChange={handleLocationChange}>
-            {LOCATIONS.map((loc, i) => (
-              <option key={loc.name} value={i}>
-                {loc.name}{loc.sub && loc.sub !== loc.name ? ` · ${loc.sub}` : ''}
+          <select className="location-select" value={typeKey} onChange={(e) => setTypeKey(e.target.value)}>
+            {WARNING_TYPES.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+                {entries.some((e) => e.typeKey === t.key) ? ' ●' : ''}
               </option>
             ))}
           </select>
-          <button className="refresh-btn" onClick={() => fetchData(location)} disabled={loading}>
+          <button className="refresh-btn" onClick={fetchData} disabled={loading}>
             {loading ? '···' : '↺ 새로고침'}
           </button>
         </div>
 
-        {/* 위치 표시 */}
-        <p className="font-label" style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em' }}>
-          {location.name}{location.sub ? ` · ${location.sub}` : ''} — {location.region}
-        </p>
         <p className="font-label" style={{ fontSize: '0.58rem', color: 'var(--color-muted)', marginTop: '0.2rem' }}>
-          *기상청 초단기실황·예보 / 에어코리아 대기오염정보
+          *기상청 기상특보 조회서비스(특보현황조회) — 시/도 단위 표시
         </p>
       </header>
 
-      {/* 날씨 섹션 */}
-      <section style={{ marginBottom: '0.5rem' }}>
-        <p className="font-label" style={{ fontSize: '0.6rem', color: '#888', marginBottom: '0.6rem', letterSpacing: '0.14em' }}>
-          현재 날씨
-          {timeStr && <> · 측정 {timeStr}</>}
-          {fetchedAt && <> · 조회 {fetchedAt} KST</>}
+      {error && (
+        <p style={{ fontSize: '0.85rem', color: '#cc0000', padding: '1rem 0', fontFamily: 'Barlow Condensed, sans-serif' }}>
+          {error}
         </p>
+      )}
 
-        {loading ? (
-          <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
-        ) : wError ? (
-          <p style={{ fontSize: '0.8rem', color: '#cc0000', padding: '1rem 0', fontFamily: 'Barlow Condensed, sans-serif' }}>{wError}</p>
-        ) : weather ? (
-          <>
-            <div className="weather-row">
-              <div className="weather-row-label">기온</div>
-              <div className="weather-row-right">°C</div>
-              <div className="weather-row-title">{weather.temperature}</div>
-            </div>
+      {loading ? (
+        <div className="map-skeleton skeleton" />
+      ) : !error ? (
+        <>
+          <div className="map-frame">
+            <KoreaMap colors={provinceColors} />
+          </div>
 
-            <div className="weather-row">
-              <div className="weather-row-label">하늘상태</div>
-              <div className="weather-row-right" style={{ fontSize: '1.8rem' }}>{icon}</div>
-              <div className="weather-row-title">{wLabel}</div>
-            </div>
+          {/* 범례 */}
+          <div className="legend">
+            <span className="legend-item">
+              <span className="legend-swatch" style={{ background: colorForLevel(selectedType.color, '주의보') }} />
+              {selectedType.label} 주의보
+            </span>
+            <span className="legend-item">
+              <span className="legend-swatch" style={{ background: colorForLevel(selectedType.color, '경보') }} />
+              {selectedType.label} 경보
+            </span>
+            <span className="legend-item">
+              <span className="legend-swatch" style={{ background: '#c7c7c7' }} />
+              발표없음
+            </span>
+          </div>
 
-            <div className="weather-row">
-              <div className="weather-row-label">습도</div>
-              <div className="weather-row-right">%</div>
-              <div className="weather-row-title">{weather.humidity}</div>
-            </div>
+          <p className="font-label" style={{ fontSize: '0.6rem', color: 'var(--color-muted)', marginTop: '1rem', letterSpacing: '0.1em' }}>
+            발표 {formatKST(tmFc)} · 발효 {formatKST(tmEf)}
+            {fetchedAt && ` · 조회 ${fetchedAt} KST`}
+          </p>
 
-            <div className="weather-row">
-              <div className="weather-row-label">풍속 / 풍향</div>
-              <div className="weather-row-right">{windDir} · m/s</div>
-              <div className="weather-row-title">{weather.windSpeed}</div>
-            </div>
-
-            <div className="weather-row">
-              <div className="weather-row-label">1시간 강수량</div>
-              <div className="weather-row-right">mm</div>
-              <div className="weather-row-title">{weather.precipitation === '0' ? '0' : weather.precipitation}</div>
-            </div>
-
-            {weather.lightning !== null && (
-              <div className="weather-row">
-                <div className="weather-row-label">낙뢰</div>
-                <div className="weather-row-right">{weather.lightning === 1 ? '⚡' : ''}</div>
-                <div className="weather-row-title">{weather.lightning === 1 ? 'WARNING' : 'NONE'}</div>
-              </div>
-            )}
-          </>
-        ) : null}
-      </section>
-
-      {/* 대기질 섹션 */}
-      <section style={{ marginTop: '2.2rem' }}>
-        <p className="font-label" style={{ fontSize: '0.6rem', color: '#888', marginBottom: '0.6rem', letterSpacing: '0.14em' }}>
-          대기질{air?.dataTime ? ` — ${air.dataTime}` : ''}
-          {air && ` · ${air.stationName} 측정소`}
-        </p>
-
-        {loading ? (
-          <><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
-        ) : aError ? (
-          <p style={{ fontSize: '0.8rem', color: '#cc0000', padding: '1rem 0', fontFamily: 'Barlow Condensed, sans-serif' }}>{aError}</p>
-        ) : air ? (
-          <>
-            {air.khaiValue && (
-              <div className="weather-row">
-                <div className="weather-row-label">
-                  통합대기환경지수
-                  <GradeBadge grade={air.khaiGrade} />
+          {activeEntriesForType.length > 0 && (
+            <section style={{ marginTop: '1.6rem' }}>
+              <p className="font-label" style={{ fontSize: '0.6rem', color: 'var(--color-muted)', marginBottom: '0.5rem', letterSpacing: '0.14em' }}>
+                {selectedType.label} 특보 상세
+              </p>
+              {activeEntriesForType.map((e, i) => (
+                <div key={i} className="warning-detail-row">
+                  <span className={`grade-badge`} style={{ background: colorForLevel(selectedType.color, e.level), color: '#fff' }}>
+                    {e.level}
+                  </span>
+                  <span>{e.areaText}</span>
                 </div>
-                <div className={`weather-row-right${air.khaiGrade ? ` grade-${GRADE_MAP[air.khaiGrade] ?? ''}` : ''}`}>KHAI</div>
-                <div className={`weather-row-title${air.khaiGrade ? ` grade-${GRADE_MAP[air.khaiGrade] ?? ''}` : ''}`}>{air.khaiValue}</div>
-              </div>
-            )}
+              ))}
+            </section>
+          )}
 
-            <AirRow label="초미세먼지 PM2.5" value={air.pm25Value} grade={air.pm25Grade} unit="μg/m³" />
-            <AirRow label="미세먼지 PM10"    value={air.pm10Value} grade={air.pm10Grade} unit="μg/m³" />
-            <AirRow label="오존 O₃"          value={air.o3Value}   grade={air.o3Grade}   unit="ppm"   />
-            <AirRow label="이산화질소 NO₂"   value={air.no2Value}  grade={air.no2Grade}  unit="ppm"   />
-            <AirRow label="이산화황 SO₂"     value={air.so2Value}  grade={air.so2Grade}  unit="ppm"   />
-            <AirRow label="일산화탄소 CO"     value={air.coValue}   grade={air.coGrade}   unit="ppm"   />
-          </>
-        ) : null}
-      </section>
+          {otherActiveTypes.length > 0 && (
+            <section style={{ marginTop: '1.6rem' }}>
+              <p className="font-label" style={{ fontSize: '0.6rem', color: 'var(--color-muted)', marginBottom: '0.5rem', letterSpacing: '0.14em' }}>
+                그 밖에 발효 중인 특보
+              </p>
+              <p style={{ fontSize: '0.85rem' }}>
+                {otherActiveTypes.map((t) => t.label).join(' · ')}
+              </p>
+            </section>
+          )}
+
+          {entries.length === 0 && (
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '1.6rem' }}>
+              현재 전국에 발효 중인 기상특보가 없습니다.
+            </p>
+          )}
+        </>
+      ) : null}
 
       <footer style={{ marginTop: '2.4rem', borderTop: '1px solid var(--color-divider)', paddingTop: '1rem' }}>
-        <p className="font-label" style={{ fontSize: '0.55rem', color: '#aaa', letterSpacing: '0.1em' }}>
-          출처: 기상청 기상자료개방포털 / 한국환경공단 에어코리아
+        <p className="font-label" style={{ fontSize: '0.55rem', color: 'var(--color-footer)', letterSpacing: '0.1em' }}>
+          출처: 기상청 기상자료개방포털 (기상특보 조회서비스)
         </p>
       </footer>
     </main>

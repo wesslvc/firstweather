@@ -16,11 +16,7 @@
   --color-btn-hover-text: #ffffff;
   --color-select-arrow: %23000000;
 
-  /* 대기질 등급 — 좋음:파랑, 보통:초록, 나쁨:노랑, 매우나쁨:빨강 */
-  --color-good:      #1a6fd4;
-  --color-moderate:  #27a85a;
-  --color-bad:       #e0b800;
-  --color-very-bad:  #d42020;
+  --color-map-empty: #c7c7c7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,10 +35,7 @@
     --color-btn-hover-text: #0d0d0d;
     --color-select-arrow: %23f0f0f0;
 
-    --color-good:      #4d9de0;
-    --color-moderate:  #3dbb6e;
-    --color-bad:       #e8cc30;
-    --color-very-bad:  #e84444;
+    --color-map-empty: #3a3a3a;
   }
 }
 
@@ -66,58 +59,62 @@ html, body {
   text-transform: uppercase;
 }
 
-.weather-row {
-  border-top: 1.5px solid var(--color-divider);
-  padding: 1.1rem 0;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 0.05rem 1rem;
-  align-items: end;
+/* ── 지도 ── */
+.map-frame {
+  border: 1.5px solid var(--color-divider);
+  padding: 1rem;
 }
 
-.weather-row:last-child {
-  border-bottom: 1.5px solid var(--color-divider);
+.korea-map svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
-.weather-row-label {
+.map-skeleton {
+  width: 100%;
+  aspect-ratio: 509 / 716;
+}
+
+/* ── 범례 ── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 600;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  grid-column: 1;
-  grid-row: 1;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
 }
 
-.weather-row-right {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 300;
-  font-size: 1.45rem;
-  letter-spacing: 0.04em;
-  text-align: right;
-  grid-column: 2;
-  grid-row: 1 / 3;
-  align-self: center;
-  white-space: nowrap;
-  color: var(--color-text);
+.legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-divider);
+  flex-shrink: 0;
 }
 
-.weather-row-title {
-  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
-  font-size: clamp(2.4rem, 9vw, 4rem);
-  letter-spacing: 0.03em;
-  line-height: 0.92;
-  grid-column: 1;
-  grid-row: 2;
-  color: var(--color-text);
+/* ── 특보 상세 목록 ── */
+.warning-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--color-divider);
+  font-size: 0.85rem;
 }
 
-.grade-good     { color: var(--color-good) !important; }
-.grade-moderate { color: var(--color-moderate) !important; }
-.grade-bad      { color: var(--color-bad) !important; }
-.grade-very-bad { color: var(--color-very-bad) !important; }
+.warning-detail-row:last-child {
+  border-bottom: 1px solid var(--color-divider);
+}
 
 .grade-badge {
   display: inline-block;
@@ -128,16 +125,8 @@ html, body {
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 2px;
-  margin-left: 0.5rem;
-  vertical-align: middle;
-  position: relative;
-  top: -2px;
+  flex-shrink: 0;
 }
-
-.badge-good     { background: var(--color-good);     color: #fff; }
-.badge-moderate { background: var(--color-moderate); color: #fff; }
-.badge-bad      { background: var(--color-bad);      color: #000; }
-.badge-very-bad { background: var(--color-very-bad); color: #fff; }
 
 /* ── 컨트롤 바 ── */
 .control-bar {
