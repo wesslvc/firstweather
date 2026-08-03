@@ -26,10 +26,15 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
     else if (forwardedRef) forwardedRef.current = node;
   };
 
-  // DOM 파싱 및 요소 캐싱은 최초 1회만 수행 (매 갱신마다 querySelector 재조회하지 않도록)
+  // SVG는 React가 관리하지 않도록 마운트 시 딱 한 번만 innerHTML로 직접 주입한다.
+  // (JSX의 dangerouslySetInnerHTML을 계속 사용하면 리렌더마다 React가 innerHTML을
+  //  재적용해, 우리가 직접 설정한 fill 인라인 style이 매번 지워지는 문제가 있었음)
   useEffect(() => {
     const root = localRef.current;
-    if (!root) return;
+    if (!root || root.dataset.injected === '1') return;
+    root.innerHTML = KOREA_MAP_SVG;
+    root.dataset.injected = '1';
+
     const svg = root.querySelector('svg');
     if (!svg) return;
 
@@ -58,12 +63,12 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
       if (!el) continue;
 
       const colors = provinceFills[province.id];
-      el.style.cursor = onProvinceClick ? 'pointer' : 'default';
+      const cursor = onProvinceClick ? 'pointer' : 'default';
 
       if (!colors || colors.length === 0) {
-        el.setAttribute('style', `fill:${defaultFill};cursor:${onProvinceClick ? 'pointer' : 'default'}`);
+        el.setAttribute('style', `fill:${defaultFill};cursor:${cursor}`);
       } else if (colors.length === 1) {
-        el.setAttribute('style', `fill:${colors[0]};cursor:${onProvinceClick ? 'pointer' : 'default'}`);
+        el.setAttribute('style', `fill:${colors[0]};cursor:${cursor}`);
       } else if (defs) {
         const gradId = `grad-${province.id}`;
         const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
@@ -79,7 +84,7 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
           grad.appendChild(stop);
         });
         defs.appendChild(grad);
-        el.setAttribute('style', `fill:url(#${gradId});cursor:${onProvinceClick ? 'pointer' : 'default'}`);
+        el.setAttribute('style', `fill:url(#${gradId});cursor:${cursor}`);
       }
 
       el.classList.toggle('kr-map-selected', selectedId === province.id);
@@ -97,14 +102,7 @@ const KoreaMap = forwardRef<HTMLDivElement, KoreaMapProps>(function KoreaMap(
     }
   };
 
-  return (
-    <div
-      ref={setRefs}
-      className="korea-map"
-      onClick={handleClick}
-      dangerouslySetInnerHTML={{ __html: KOREA_MAP_SVG }}
-    />
-  );
+  return <div ref={setRefs} className="korea-map" onClick={handleClick} />;
 });
 
 export default KoreaMap;

@@ -91,12 +91,10 @@ html, body {
 /* ── 특보 종류 선택 칩 ── */
 .type-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
-  overflow-x: auto;
   padding: 0.2rem 0 0.9rem;
-  scrollbar-width: none;
 }
-.type-chips::-webkit-scrollbar { display: none; }
 
 .type-chip {
   display: inline-flex;
@@ -139,9 +137,14 @@ html, body {
   padding: 1rem;
 }
 
+.korea-map {
+  width: 100%;
+  height: 100%;
+}
+
 .korea-map svg {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
 }
 
@@ -154,6 +157,53 @@ html, body {
   aspect-ratio: 509 / 716;
   border-radius: 10px;
 }
+
+/* ── 확대/축소 가능한 지도 뷰포트 ── */
+.zoom-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 509 / 716;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.zoom-surface {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.zoom-content {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+}
+
+.zoom-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zoom-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.92;
+}
+
+.zoom-btn:hover { opacity: 1; }
 
 /* ── 범례 ── */
 .legend {
