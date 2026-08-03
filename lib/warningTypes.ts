@@ -63,6 +63,16 @@ export function shade(rgb: string, amount: number): string {
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 
+// 배경색 밝기에 따라 읽히는 글자색을 고른다.
+// (열대야 rgb(213,255,85)처럼 밝은 색 위에 흰 글씨를 쓰면 보이지 않는다)
+export function textColorFor(rgb: string): string {
+  const m = rgb.match(/(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+  if (!m) return '#ffffff';
+  const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 150 ? '#101114' : '#ffffff';
+}
+
 export function colorForLevel(baseColor: string, level: WarningLevel): string {
   if (level === '주의보') return tint(baseColor, 0.5);
   if (level === '중대경보') return shade(baseColor, 0.35);

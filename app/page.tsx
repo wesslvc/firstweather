@@ -7,6 +7,7 @@ import {
   WARNING_TYPES,
   LEVEL_ORDER,
   colorForLevel,
+  textColorFor,
   warningTypeByKey,
   type WarningEntry,
 } from '@/lib/warningTypes';
@@ -120,6 +121,9 @@ export default function Home() {
     () => (selectedKey === ALL ? [] : entries.filter((e) => e.typeKey === selectedKey)),
     [entries, selectedKey]
   );
+
+  // 지역을 고르지 않았을 때 아래에 쭉 보여줄 목록
+  const listEntries = selectedKey === ALL ? entries : activeEntriesForType;
 
   const selectedDistrictEntries = useMemo(() => {
     if (!selectedDistrict) return [];
@@ -254,34 +258,41 @@ export default function Home() {
                 <button className="detail-close-btn" onClick={() => setSelectedDistrict(null)}>✕</button>
               </div>
               {selectedDistrictEntries.length > 0 ? (
-                selectedDistrictEntries.map((e, i) => {
-                  const type = warningTypeByKey(e.typeKey);
-                  return (
-                    <div key={i} className="detail-row">
-                      <span className="level-badge" style={{ background: type ? colorForLevel(type.color, e.level) : '#888' }}>
+                <div className="badge-row">
+                  {selectedDistrictEntries.map((e, i) => {
+                    const type = warningTypeByKey(e.typeKey);
+                    const bg = type ? colorForLevel(type.color, e.level) : '#888888';
+                    return (
+                      <span key={i} className="level-badge" style={{ background: bg, color: textColorFor(bg) }}>
                         {e.label}
                       </span>
-                      <span style={{ color: 'var(--color-muted)' }}>{e.areaText}</span>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               ) : (
                 <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>현재 발효 중인 특보가 없습니다.</p>
               )}
             </div>
           )}
 
-          {selectedKey !== ALL && activeEntriesForType.length > 0 && (
+          {/* 지역을 클릭하면 그 지역 정보에 집중하도록 전체 목록은 감춘다 */}
+          {!selectedDistrict && listEntries.length > 0 && (
             <div className="warning-list">
-              <div className="warning-list-title">{selectedType!.label} 특보 상세</div>
-              {activeEntriesForType.map((e, i) => (
-                <div key={i} className="warning-detail-row">
-                  <span className="level-badge" style={{ background: colorForLevel(selectedType!.color, e.level) }}>
-                    {e.level}
-                  </span>
-                  <span>{e.areaText}</span>
-                </div>
-              ))}
+              <div className="warning-list-title">
+                {selectedKey === ALL ? '발효 중인 특보' : `${selectedType!.label} 특보 상세`}
+              </div>
+              {listEntries.map((e, i) => {
+                const type = warningTypeByKey(e.typeKey);
+                const bg = type ? colorForLevel(type.color, e.level) : '#888888';
+                return (
+                  <div key={i} className="warning-detail-row">
+                    <span className="level-badge" style={{ background: bg, color: textColorFor(bg) }}>
+                      {selectedKey === ALL ? e.label : e.level}
+                    </span>
+                    <span>{e.areaText}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
