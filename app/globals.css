@@ -2,20 +2,44 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg: #ffffff;
-  --color-text: #000000;
-  --color-muted: #555555;
-  --color-good: #00a651;
-  --color-moderate: #f5a623;
-  --color-bad: #ff6b00;
-  --color-very-bad: #cc0000;
+  --color-bg:        #ffffff;
+  --color-text:      #000000;
+  --color-muted:     #555555;
+  --color-divider:   #000000;
+  --color-footer:    #aaaaaa;
+  --color-skeleton1: #ebebeb;
+  --color-skeleton2: #dddddd;
+  --color-btn-bg:    transparent;
+  --color-btn-text:  #000000;
+  --color-btn-border:#000000;
+  --color-btn-hover-bg:   #000000;
+  --color-btn-hover-text: #ffffff;
+  --color-select-arrow: %23000000;
+
+  --color-map-empty: #c7c7c7;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg:        #0d0d0d;
+    --color-text:      #f0f0f0;
+    --color-muted:     #888888;
+    --color-divider:   #333333;
+    --color-footer:    #555555;
+    --color-skeleton1: #1e1e1e;
+    --color-skeleton2: #2a2a2a;
+    --color-btn-bg:    transparent;
+    --color-btn-text:  #f0f0f0;
+    --color-btn-border:#f0f0f0;
+    --color-btn-hover-bg:   #f0f0f0;
+    --color-btn-hover-text: #0d0d0d;
+    --color-select-arrow: %23f0f0f0;
+
+    --color-map-empty: #3a3a3a;
+  }
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
   background-color: var(--color-bg);
@@ -35,56 +59,62 @@ html, body {
   text-transform: uppercase;
 }
 
-.weather-row {
-  border-top: 1.5px solid #000;
-  padding: 1.1rem 0;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 0.05rem 1rem;
-  align-items: end;
+/* ── 지도 ── */
+.map-frame {
+  border: 1.5px solid var(--color-divider);
+  padding: 1rem;
 }
 
-.weather-row:last-child {
-  border-bottom: 1.5px solid #000;
+.korea-map svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
-.weather-row-label {
+.map-skeleton {
+  width: 100%;
+  aspect-ratio: 509 / 716;
+}
+
+/* ── 범례 ── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 600;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  grid-column: 1;
-  grid-row: 1;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
 }
 
-.weather-row-right {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 300;
-  font-size: 1.45rem;
-  letter-spacing: 0.04em;
-  text-align: right;
-  grid-column: 2;
-  grid-row: 1 / 3;
-  align-self: center;
-  white-space: nowrap;
+.legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-divider);
+  flex-shrink: 0;
 }
 
-.weather-row-title {
-  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
-  font-size: clamp(2.4rem, 9vw, 4rem);
-  letter-spacing: 0.03em;
-  line-height: 0.92;
-  grid-column: 1;
-  grid-row: 2;
+/* ── 특보 상세 목록 ── */
+.warning-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--color-divider);
+  font-size: 0.85rem;
 }
 
-.grade-good     { color: var(--color-good); }
-.grade-moderate { color: var(--color-moderate); }
-.grade-bad      { color: var(--color-bad); }
-.grade-very-bad { color: var(--color-very-bad); }
+.warning-detail-row:last-child {
+  border-bottom: 1px solid var(--color-divider);
+}
 
 .grade-badge {
   display: inline-block;
@@ -95,37 +125,71 @@ html, body {
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 2px;
-  margin-left: 0.5rem;
-  vertical-align: middle;
-  position: relative;
-  top: -2px;
+  flex-shrink: 0;
 }
 
-.badge-good     { background: var(--color-good);     color: #fff; }
-.badge-moderate { background: var(--color-moderate); color: #fff; }
-.badge-bad      { background: var(--color-bad);      color: #fff; }
-.badge-very-bad { background: var(--color-very-bad); color: #fff; }
+/* ── 컨트롤 바 ── */
+.control-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.location-select {
+  flex: 1;
+  font-family: 'Barlow Condensed', 'Noto Sans KR', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  border: 1.5px solid var(--color-btn-border);
+  padding: 9px 28px 9px 12px;
+  background-color: var(--color-btn-bg);
+  color: var(--color-btn-text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23000'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  min-width: 0;
+}
+
+.location-select:focus { outline: none; }
+
+@media (prefers-color-scheme: dark) {
+  .location-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23f0f0f0'/%3E%3C/svg%3E");
+  }
+  .location-select option { background: #1a1a1a; color: #f0f0f0; }
+}
 
 .refresh-btn {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  border: 1.5px solid #000;
-  padding: 5px 14px;
-  background: transparent;
+  border: 1.5px solid var(--color-btn-border);
+  padding: 9px 18px;
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
 
-.refresh-btn:hover {
-  background: #000;
-  color: #fff;
+.refresh-btn:hover:not(:disabled) {
+  background: var(--color-btn-hover-bg);
+  color: var(--color-btn-hover-text);
 }
 
+.refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
 .skeleton {
-  background: linear-gradient(90deg, #ebebeb 25%, #ddd 50%, #ebebeb 75%);
+  background: linear-gradient(90deg, var(--color-skeleton1) 25%, var(--color-skeleton2) 50%, var(--color-skeleton1) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 2px;

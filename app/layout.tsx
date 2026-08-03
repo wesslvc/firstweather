@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "날씨 & 미세먼지",
-  description: "기상청 & 에어코리아 데이터 기반 날씨 및 미세먼지 정보",
+  title: "기상특보",
+  description: "기상청 기상특보 조회서비스 기반 지역별 특보 지도",
 };
 
 export default function RootLayout({
