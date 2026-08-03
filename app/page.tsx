@@ -3,9 +3,14 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import KoreaMap from '@/components/KoreaMap';
 import ZoomableMap from '@/components/ZoomableMap';
-import { WARNING_TYPES, LEVEL_ORDER, colorForLevel, warningTypeByKey } from '@/lib/warningTypes';
+import {
+  WARNING_TYPES,
+  LEVEL_ORDER,
+  colorForLevel,
+  warningTypeByKey,
+  type WarningEntry,
+} from '@/lib/warningTypes';
 import { DISTRICTS, PROVINCES } from '@/lib/regionMap';
-import type { WarningEntry } from '@/app/api/warnings/route';
 
 interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: WarningEntry[] }; error?: string; }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { findDistrictsForAreaName, DISTRICT_PROVINCE } from '@/lib/regionMap';
-import { findWarningType, type WarningLevel } from '@/lib/warningTypes';
+import { findWarningType, type WarningEntry, type WarningLevel } from '@/lib/warningTypes';
 
 const API_PATH = '//apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
 const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
@@ -9,15 +9,6 @@ export const dynamic = 'force-dynamic';
 // NOTE: 기상청 서버는 국내에 있어 함수를 서울(icn1) 리전에서 실행하는 편이 훨씬 빠르다.
 // 다만 리전/maxDuration을 코드에서 export하면 플랜 제약에 걸려 배포가 실패할 수 있으므로
 // 여기서 지정하지 않고 Vercel 대시보드(Settings > Functions > Function Region)에서 설정한다.
-
-export interface WarningEntry {
-  label: string;             // 예: "폭염경보", "폭염중대경보"
-  typeKey: string;           // 예: "폭염"
-  level: WarningLevel;
-  areaText: string;          // 원문 지역 설명
-  districts: string[];       // 매칭된 시/군/구 SVG id 목록
-  provinces: string[];       // districts가 속한 시/도 id 목록 (중복 제거)
-}
 
 // 통보문 항목은 보통 "XX주의보"/"XX경보" 형태지만, 열대야처럼 단계 구분 없이
 // 이름만 나오는 항목도 있어 둘 다 매칭
