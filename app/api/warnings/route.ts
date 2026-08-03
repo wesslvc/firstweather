@@ -6,10 +6,9 @@ const API_PATH = '//apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
 const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
 
 export const dynamic = 'force-dynamic';
-// 기상청/공공데이터포털 서버는 국내에 있어, 기본값인 미국 리전에서 호출하면
-// 왕복 지연이 커져 타임아웃이 발생한다. 함수를 서울 리전에서 실행시킨다.
-export const preferredRegion = 'icn1';
-export const maxDuration = 30;
+// NOTE: 기상청 서버는 국내에 있어 함수를 서울(icn1) 리전에서 실행하는 편이 훨씬 빠르다.
+// 다만 리전/maxDuration을 코드에서 export하면 플랜 제약에 걸려 배포가 실패할 수 있으므로
+// 여기서 지정하지 않고 Vercel 대시보드(Settings > Functions > Function Region)에서 설정한다.
 
 export interface WarningEntry {
   label: string;             // 예: "폭염경보", "폭염중대경보"
@@ -46,16 +45,22 @@ async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
 
 // data.go.kr는 https/http를 모두 서비스하지만 환경에 따라 한쪽이 막히거나 느릴 수 있어
 // https를 먼저 시도하고 실패하면 http로 재시도한다.
+// 두 번의 시도를 합쳐도 서버리스 함수 실행 제한(기본 10초)을 넘지 않도록 총 예산을 둔다.
+const TOTAL_BUDGET_MS = 8500;
+const FIRST_ATTEMPT_MS = 5500;
+
 async function fetchPwnStatus(query: string): Promise<Response> {
-  const attempts: Array<{ url: string; ms: number }> = [
-    { url: `https:${API_PATH}?${query}`, ms: 12000 },
-    { url: `http:${API_PATH}?${query}`, ms: 10000 },
-  ];
+  const startedAt = Date.now();
+  const urls = [`https:${API_PATH}?${query}`, `http:${API_PATH}?${query}`];
 
   let lastError: unknown;
-  for (const { url, ms } of attempts) {
+  for (let i = 0; i < urls.length; i++) {
+    const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining <= 500) break;
+    const ms = i === 0 ? Math.min(FIRST_ATTEMPT_MS, remaining) : remaining;
+
     try {
-      const res = await fetchWithTimeout(url, ms);
+      const res = await fetchWithTimeout(urls[i], ms);
       if (res.ok) return res;
       lastError = new Error(`기상특보 API HTTP ${res.status}`);
     } catch (e) {

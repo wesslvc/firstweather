@@ -39,8 +39,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     const controller = new AbortController();
-    // 서버 라우트가 https 실패 시 http로 재시도하므로 그보다 넉넉하게 잡는다
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    // 서버 라우트의 총 예산(8.5초) + 콜드스타트 여유를 감안해 넉넉하게 잡는다
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const res = await fetch(`/api/warnings?t=${Date.now()}`, { signal: controller.signal });
       const json: ApiResult = await res.json();
