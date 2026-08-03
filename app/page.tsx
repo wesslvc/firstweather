@@ -15,7 +15,11 @@ import { DISTRICTS, PROVINCES } from '@/lib/regionMap';
 
 interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: WarningEntry[] }; error?: string; }
 
-const ALL = 'ALL';
+// 검색용: "서울 종로구"처럼 시/도 + 시군구를 한 문자열로 붙여 둔다
+const SEARCH_INDEX = DISTRICTS.map((d) => {
+  const provinceLabel = PROVINCES.find((p) => p.id === d.provinceId)?.label ?? '';
+  return { id: d.id, label: d.label, provinceLabel, haystack: `${provinceLabel}${d.label}`.replace(/\s/g, '') };
+});
 
 // 기상청은 tmFc를 숫자로 줄 때가 있어 어떤 타입이 와도 안전하게 처리한다
 function formatKST(value: string | number | null | undefined): string {
@@ -33,7 +37,8 @@ function currentKSTTime(): string {
 }
 
 export default function Home() {
-  const [selectedKey, setSelectedKey] = useState<string>(ALL);
+  const [selectedKey, setSelectedKey] = useState<string>(WARNING_TYPES[0].key);
+  const [query, setQuery] = useState('');
   const [entries, setEntries] = useState<WarningEntry[]>([]);
   const [tmFc, setTmFc] = useState('');
   const [tmEf, setTmEf] = useState('');
@@ -81,6 +86,13 @@ export default function Home() {
 
   const activeTypeKeys = useMemo(() => new Set(entries.map((e) => e.typeKey)), [entries]);
 
+  // 지금 고른 특보가 발효 중이 아니면, 실제로 발효 중인 첫 특보로 옮겨 준다
+  useEffect(() => {
+    if (entries.length === 0 || activeTypeKeys.has(selectedKey)) return;
+    const firstActive = WARNING_TYPES.find((t) => activeTypeKeys.has(t.key));
+    if (firstActive) setSelectedKey(firstActive.key);
+  }, [entries, activeTypeKeys, selectedKey]);
+
   // district id -> { typeKey -> 최고심도 entry } (전체보기용 집계)
   const byDistrict = useMemo(() => {
     const map = new Map<string, Map<string, WarningEntry>>();
@@ -99,29 +111,26 @@ export default function Home() {
 
   const districtFills = useMemo(() => {
     const fills: Record<string, string[]> = {};
-    if (selectedKey === ALL) {
+    const type = warningTypeByKey(selectedKey);
+    if (type) {
       for (const [district, typeMap] of byDistrict) {
-        fills[district] = WARNING_TYPES.filter((t) => typeMap.has(t.key)).map((t) => {
-          const e = typeMap.get(t.key)!;
-          return colorForLevel(t.color, e.level);
-        });
-      }
-    } else {
-      const type = warningTypeByKey(selectedKey);
-      if (type) {
-        for (const [district, typeMap] of byDistrict) {
-          const e = typeMap.get(selectedKey);
-          if (e) fills[district] = [colorForLevel(type.color, e.level)];
-        }
+        const e = typeMap.get(selectedKey);
+        if (e) fills[district] = [colorForLevel(type.color, e.level)];
       }
     }
     return fills;
   }, [byDistrict, selectedKey]);
 
   const activeEntriesForType = useMemo(
-    () => (selectedKey === ALL ? [] : entries.filter((e) => e.typeKey === selectedKey)),
+    () => entries.filter((e) => e.typeKey === selectedKey),
     [entries, selectedKey]
   );
+
+  const searchResults = useMemo(() => {
+    const q = query.trim().replace(/\s/g, '');
+    if (!q) return [];
+    return SEARCH_INDEX.filter((d) => d.haystack.includes(q)).slice(0, 8);
+  }, [query]);
 
   // 지역을 누르면 상세 패널이 보이도록 내려준다.
   // (지도 확대 애니메이션이 시작된 뒤 움직여야 자연스럽다)
@@ -134,7 +143,7 @@ export default function Home() {
   }, [selectedDistrict]);
 
   // 지역을 고르지 않았을 때 아래에 쭉 보여줄 목록
-  const listEntries = selectedKey === ALL ? entries : activeEntriesForType;
+  const listEntries = activeEntriesForType;
 
   const selectedDistrictEntries = useMemo(() => {
     if (!selectedDistrict) return [];
@@ -147,20 +156,78 @@ export default function Home() {
     ? `${selectedDistrictProvinceLabel} ${selectedDistrictInfo.label}`
     : '';
 
+  // 지도를 PNG로 저장한다.
+  // SVG 그대로 받으면 (1) 색을 CSS 변수로 지정한 부분이 파일 안에서 정의되지 않아
+  // 발표없음 지역이 비어 보이고 (2) 휴대폰 갤러리 앱이 SVG를 열지 못한다.
+  // 그래서 변수를 실제 색으로 치환하고 배경을 깐 뒤 canvas로 PNG를 만든다.
   const handleDownload = () => {
     const svg = mapWrapRef.current?.querySelector('svg');
     if (!svg) return;
-    const serialized = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([serialized], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `기상특보_${selectedKey === ALL ? '전체' : selectedKey}_${tmFc || 'map'}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    const rootStyle = getComputedStyle(document.documentElement);
+    const readVar = (name: string, fallback: string) =>
+      rootStyle.getPropertyValue(name).trim() || fallback;
+    const emptyFill = readVar('--color-map-empty', '#d9dbe0');
+    const background = readVar('--color-surface', '#ffffff');
+
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+    clone.querySelectorAll('.kr-map-selected').forEach((el) => el.classList.remove('kr-map-selected'));
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', '100%');
+    bg.setAttribute('height', '100%');
+    bg.setAttribute('fill', background);
+    clone.insertBefore(bg, clone.firstChild);
+
+    const markup = new XMLSerializer()
+      .serializeToString(clone)
+      .split('var(--color-map-empty)').join(emptyFill)
+      .split('var(--color-surface)').join(background);
+
+    const name = `기상특보_${selectedKey}_${tmFc || 'map'}`;
+    const svgUrl = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }));
+
+    const saveBlob = (blob: Blob, filename: string) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const viewBox = (clone.getAttribute('viewBox') ?? '0 0 509 716').split(/\s+/).map(Number);
+    const scale = 3;
+    const width = Math.round((viewBox[2] || 509) * scale);
+    const height = Math.round((viewBox[3] || 716) * scale);
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(svgUrl);
+      canvas.toBlob((blob) => {
+        if (blob) saveBlob(blob, `${name}.png`);
+      }, 'image/png');
+    };
+    img.onerror = () => {
+      // PNG 변환이 막히면 최소한 SVG라도 받게 한다
+      URL.revokeObjectURL(svgUrl);
+      saveBlob(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }), `${name}.svg`);
+    };
+    img.src = svgUrl;
   };
 
-  const selectedType = selectedKey === ALL ? null : warningTypeByKey(selectedKey) ?? null;
+  const selectedType = warningTypeByKey(selectedKey) ?? WARNING_TYPES[0];
 
   return (
     <main className="app-shell">
@@ -179,14 +246,39 @@ export default function Home() {
         </div>
       </div>
 
+      <div className="search-box">
+        <input
+          className="search-input"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="지역 검색 (예: 성북구, 수원)"
+          aria-label="지역 검색"
+        />
+        {searchResults.length > 0 && (
+          <ul className="search-results">
+            {searchResults.map((d) => (
+              <li key={d.id}>
+                <button
+                  className="search-result"
+                  onClick={() => {
+                    setSelectedDistrict(d.id);
+                    setQuery('');
+                  }}
+                >
+                  <span className="search-result-province">{d.provinceLabel}</span>
+                  {d.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {query.trim() && searchResults.length === 0 && (
+          <p className="search-empty">일치하는 지역이 없습니다.</p>
+        )}
+      </div>
+
       <div className="type-chips">
-        <button
-          className={`type-chip gradient-dot${selectedKey === ALL ? ' active' : ''}`}
-          onClick={() => setSelectedKey(ALL)}
-        >
-          <span className="dot" />
-          전체
-        </button>
         {WARNING_TYPES.map((t) => (
           <button
             key={t.code}
@@ -223,30 +315,19 @@ export default function Home() {
             </div>
 
             <div className="legend">
-              {selectedKey === ALL ? (
-                WARNING_TYPES.map((t) => (
-                  <span className="legend-item" key={t.code}>
-                    <span className="legend-swatch" style={{ background: t.color }} />
-                    {t.label}
-                  </span>
-                ))
-              ) : (
-                <>
-                  <span className="legend-item">
-                    <span className="legend-swatch" style={{ background: colorForLevel(selectedType!.color, '주의보') }} />
-                    {selectedType!.label} 주의보
-                  </span>
-                  <span className="legend-item">
-                    <span className="legend-swatch" style={{ background: selectedType!.color }} />
-                    {selectedType!.label} 경보
-                  </span>
-                  {activeEntriesForType.some((e) => e.level === '중대경보') && (
-                    <span className="legend-item">
-                      <span className="legend-swatch" style={{ background: colorForLevel(selectedType!.color, '중대경보') }} />
-                      {selectedType!.label} 중대경보
-                    </span>
-                  )}
-                </>
+              <span className="legend-item">
+                <span className="legend-swatch" style={{ background: colorForLevel(selectedType.color, '주의보') }} />
+                {selectedType.label} 주의보
+              </span>
+              <span className="legend-item">
+                <span className="legend-swatch" style={{ background: selectedType.color }} />
+                {selectedType.label} 경보
+              </span>
+              {activeEntriesForType.some((e) => e.level === '중대경보') && (
+                <span className="legend-item">
+                  <span className="legend-swatch" style={{ background: colorForLevel(selectedType.color, '중대경보') }} />
+                  {selectedType.label} 중대경보
+                </span>
               )}
               <span className="legend-item">
                 <span className="legend-swatch" style={{ background: 'var(--color-map-empty)' }} />
@@ -289,16 +370,13 @@ export default function Home() {
           {/* 지역을 클릭하면 그 지역 정보에 집중하도록 전체 목록은 감춘다 */}
           {!selectedDistrict && listEntries.length > 0 && (
             <div className="warning-list">
-              <div className="warning-list-title">
-                {selectedKey === ALL ? '발효 중인 특보' : `${selectedType!.label} 특보 상세`}
-              </div>
+              <div className="warning-list-title">{selectedType.label} 특보 상세</div>
               {listEntries.map((e, i) => {
-                const type = warningTypeByKey(e.typeKey);
-                const bg = type ? colorForLevel(type.color, e.level) : '#888888';
+                const bg = colorForLevel(selectedType.color, e.level);
                 return (
                   <div key={i} className="warning-detail-row">
                     <span className="level-badge" style={{ background: bg, color: textColorFor(bg) }}>
-                      {selectedKey === ALL ? e.label : e.level}
+                      {e.level}
                     </span>
                     <span>{e.areaText}</span>
                   </div>

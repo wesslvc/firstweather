@@ -88,6 +88,70 @@ html, body {
   border-color: var(--color-accent);
 }
 
+/* ── 지역 검색 ── */
+.search-box {
+  position: relative;
+  margin-bottom: 0.7rem;
+}
+
+.search-input {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.search-input:focus { border-color: var(--color-text); }
+.search-input::placeholder { color: var(--color-muted); }
+
+.search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.search-result {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.search-result:hover { background: var(--color-border); }
+
+.search-result-province {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.search-empty {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  padding: 0.5rem 0.2rem 0;
+}
+
 /* ── 특보 종류 선택 칩 ── */
 .type-chips {
   display: flex;
