@@ -8,6 +8,17 @@ export interface WarningType {
 
 export const CLEARED_COLOR = 'rgb(220,220,220)'; // 코드 "3" 해제
 
+// API 라우트와 클라이언트가 공유하는 응답 타입.
+// 클라이언트 컴포넌트가 서버 전용 라우트 파일을 import 하지 않도록 여기에 둔다.
+export interface WarningEntry {
+  label: string;             // 예: "폭염경보", "폭염중대경보"
+  typeKey: string;           // 예: "폭염"
+  level: WarningLevel;
+  areaText: string;          // 원문 지역 설명
+  districts: string[];       // 매칭된 시/군/구 SVG id 목록
+  provinces: string[];       // districts가 속한 시/도 id 목록 (중복 제거)
+}
+
 export const WARNING_TYPES: WarningType[] = [
   { code: 'W', key: '강풍',   label: '강풍',   color: 'rgb(0,240,0)' },
   { code: 'V', key: '풍랑',   label: '풍랑',   color: 'rgb(0,255,255)' },
