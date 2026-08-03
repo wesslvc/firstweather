@@ -24,7 +24,15 @@ export const WARNING_TYPES: WarningType[] = [
   { code: 'K', key: '열대야', label: '열대야', color: 'rgb(213,255,85)' },
 ];
 
-export type WarningLevel = '주의보' | '경보' | '특보';
+// 폭염 등 일부 특보는 경보 위에 "중대경보" 단계가 추가로 존재
+export type WarningLevel = '주의보' | '경보' | '중대경보' | '특보';
+
+export const LEVEL_ORDER: Record<WarningLevel, number> = {
+  주의보: 0,
+  특보: 1,
+  경보: 2,
+  중대경보: 3,
+};
 
 // rgb(r,g,b) 문자열을 흰색과 섞어 밝게(주의보용 톤) 만든다
 export function tint(rgb: string, amount: number): string {
@@ -35,8 +43,19 @@ export function tint(rgb: string, amount: number): string {
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 
+// rgb(r,g,b) 문자열을 검정과 섞어 어둡게(중대경보용 톤) 만든다
+export function shade(rgb: string, amount: number): string {
+  const m = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (!m) return rgb;
+  const [r, g, b] = [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+  const mix = (c: number) => Math.round(c * (1 - amount));
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
 export function colorForLevel(baseColor: string, level: WarningLevel): string {
-  return level === '주의보' ? tint(baseColor, 0.5) : baseColor;
+  if (level === '주의보') return tint(baseColor, 0.5);
+  if (level === '중대경보') return shade(baseColor, 0.35);
+  return baseColor;
 }
 
 export function findWarningType(name: string): WarningType | null {

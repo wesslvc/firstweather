@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { findProvinceForAreaName } from '@/lib/regionMap';
-import { findWarningType } from '@/lib/warningTypes';
+import { findWarningType, type WarningLevel } from '@/lib/warningTypes';
 
 const BASE_URL = 'http://apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus';
 const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
@@ -8,9 +8,9 @@ const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate
 export const dynamic = 'force-dynamic';
 
 export interface WarningEntry {
-  label: string;             // 예: "폭염경보"
+  label: string;             // 예: "폭염경보", "폭염중대경보"
   typeKey: string;           // 예: "폭염"
-  level: '주의보' | '경보' | '특보';
+  level: WarningLevel;
   areaText: string;          // 원문 지역 설명
   provinces: string[];       // 매칭된 시/도 SVG id 목록
 }
@@ -72,7 +72,13 @@ export async function GET() {
       for (const { label, areaText } of parseT6(t6)) {
         const type = findWarningType(label);
         if (!type) continue;
-        const level = label.endsWith('경보') ? '경보' : label.endsWith('주의보') ? '주의보' : '특보';
+        const level: WarningLevel = label.endsWith('중대경보')
+          ? '중대경보'
+          : label.endsWith('경보')
+            ? '경보'
+            : label.endsWith('주의보')
+              ? '주의보'
+              : '특보';
 
         const provinceSet = new Set<string>();
         for (const token of tokenizeAreaText(areaText)) {

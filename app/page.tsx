@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import KoreaMap from '@/components/KoreaMap';
-import { WARNING_TYPES, colorForLevel, warningTypeByKey } from '@/lib/warningTypes';
+import { WARNING_TYPES, LEVEL_ORDER, colorForLevel, warningTypeByKey } from '@/lib/warningTypes';
 import { PROVINCES } from '@/lib/regionMap';
 import type { WarningEntry } from '@/app/api/warnings/route';
 
 interface ApiResult { data?: { tmFc: string; tmEf: string; t6: string; entries: WarningEntry[] }; error?: string; }
 
 const ALL = 'ALL';
-const LEVEL_ORDER: Record<string, number> = { 경보: 2, 특보: 1, 주의보: 0 };
 
 function formatKST(yyyymmddhhmm: string): string {
   if (!yyyymmddhhmm || yyyymmddhhmm.length < 12) return '';
@@ -203,6 +202,12 @@ export default function Home() {
                     <span className="legend-swatch" style={{ background: selectedType!.color }} />
                     {selectedType!.label} 경보
                   </span>
+                  {activeEntriesForType.some((e) => e.level === '중대경보') && (
+                    <span className="legend-item">
+                      <span className="legend-swatch" style={{ background: colorForLevel(selectedType!.color, '중대경보') }} />
+                      {selectedType!.label} 중대경보
+                    </span>
+                  )}
                 </>
               )}
               <span className="legend-item">
