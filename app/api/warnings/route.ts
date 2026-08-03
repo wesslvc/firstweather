@@ -68,9 +68,28 @@ export async function GET() {
     }
     if (!res.ok) throw new Error(`기상특보 API ${res.status}`);
 
-    const json = await res.json();
-    const item = json?.response?.body?.items?.item?.[0];
-    if (!item) throw new Error('특보 현황 데이터 없음');
+    // data.go.kr는 인증 오류 등에서 dataType=JSON을 요청해도 XML을 그대로 돌려줄 때가 있어
+    // res.json()이 SyntaxError로 죽기 전에 원문을 먼저 확보해 진단 가능하게 함
+    const rawText = await res.text();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let json: any;
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      throw new Error(`기상특보 API가 JSON이 아닌 응답을 반환했습니다: ${rawText.slice(0, 200)}`);
+    }
+
+    const resultCode = json?.response?.header?.resultCode;
+    const resultMsg = json?.response?.header?.resultMsg;
+    if (resultCode !== undefined && !['0', '00'].includes(String(resultCode))) {
+      throw new Error(`기상특보 API 오류 (${resultCode}): ${resultMsg ?? '알 수 없는 오류'}`);
+    }
+
+    // data.go.kr는 결과가 1건일 때 item을 배열이 아닌 단일 객체로 반환한다.
+    // getPwnStatus는 항상 현재 특보현황 1건만 돌려주므로 배열/객체 둘 다 방어적으로 처리.
+    const itemsRaw = json?.response?.body?.items?.item;
+    const item = Array.isArray(itemsRaw) ? itemsRaw[0] : itemsRaw;
+    if (!item) throw new Error('특보 현황 데이터 없음 (응답 형식 확인 필요)');
 
     const t6: string = item.t6 ?? '';
     const tmFc: string = item.tmFc ?? '';
