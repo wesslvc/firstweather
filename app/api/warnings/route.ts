@@ -56,7 +56,15 @@ export async function GET() {
       pageNo: '1',
     });
 
-    const res = await fetch(`${BASE_URL}?${params}`, { cache: 'no-store' });
+    // KMA 서버가 응답하지 않을 때 무한 대기하지 않도록 타임아웃 설정
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let res: Response;
+    try {
+      res = await fetch(`${BASE_URL}?${params}`, { cache: 'no-store', signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) throw new Error(`기상특보 API ${res.status}`);
 
     const json = await res.json();
@@ -68,7 +76,7 @@ export async function GET() {
     const tmEf: string = item.tmEf ?? '';
 
     const entries: WarningEntry[] = [];
-    if (!/^\s*없음\s*$/.test(t6)) {
+    if (!/^\s*o?\s*없음\s*$/.test(t6)) {
       for (const { label, areaText } of parseT6(t6)) {
         const type = findWarningType(label);
         if (!type) continue;
@@ -102,6 +110,9 @@ export async function GET() {
     );
   } catch (e) {
     console.error('Warning API error:', e);
-    return NextResponse.json({ error: String(e) }, { status: 500, headers: NO_CACHE_HEADERS });
+    const message = e instanceof Error && e.name === 'AbortError'
+      ? '기상청 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.'
+      : String(e);
+    return NextResponse.json({ error: message }, { status: 500, headers: NO_CACHE_HEADERS });
   }
 }

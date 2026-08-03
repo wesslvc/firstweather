@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import KoreaMap from '@/components/KoreaMap';
+import ZoomableMap from '@/components/ZoomableMap';
 import { WARNING_TYPES, LEVEL_ORDER, colorForLevel, warningTypeByKey } from '@/lib/warningTypes';
 import { PROVINCES } from '@/lib/regionMap';
 import type { WarningEntry } from '@/app/api/warnings/route';
@@ -37,8 +38,10 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const res = await fetch(`/api/warnings?t=${Date.now()}`);
+      const res = await fetch(`/api/warnings?t=${Date.now()}`, { signal: controller.signal });
       const json: ApiResult = await res.json();
       if (res.ok && json.data) {
         setEntries(json.data.entries);
@@ -48,10 +51,15 @@ export default function Home() {
         setEntries([]);
         setError(json.error ?? '특보 데이터를 가져오지 못했습니다.');
       }
-    } catch {
+    } catch (e) {
       setEntries([]);
-      setError('특보 데이터를 가져오지 못했습니다.');
+      setError(
+        e instanceof DOMException && e.name === 'AbortError'
+          ? '응답이 너무 늦어 요청을 중단했습니다. 새로고침을 눌러 다시 시도해 주세요.'
+          : '특보 데이터를 가져오지 못했습니다.'
+      );
     } finally {
+      clearTimeout(timeout);
       setFetchedAt(currentKSTTime());
       setLoading(false);
     }
@@ -172,16 +180,19 @@ export default function Home() {
       {loading ? (
         <div className="map-card">
           <div className="map-skeleton skeleton" />
+          <p className="meta-line">특보 데이터를 불러오는 중입니다…</p>
         </div>
       ) : !error ? (
         <>
           <div className="map-card">
             <div ref={mapWrapRef}>
-              <KoreaMap
-                provinceFills={provinceFills}
-                selectedId={selectedProvince}
-                onProvinceClick={setSelectedProvince}
-              />
+              <ZoomableMap>
+                <KoreaMap
+                  provinceFills={provinceFills}
+                  selectedId={selectedProvince}
+                  onProvinceClick={setSelectedProvince}
+                />
+              </ZoomableMap>
             </div>
 
             <div className="legend">
@@ -218,7 +229,7 @@ export default function Home() {
 
             <p className="meta-line">
               발표 {formatKST(tmFc)} · 발효 {formatKST(tmEf)}
-              {fetchedAt && ` · 조회 ${fetchedAt} KST`} · 지역을 클릭하면 상세 특보를 볼 수 있습니다
+              {fetchedAt && ` · 조회 ${fetchedAt} KST`} · 지역 클릭 시 상세 특보 표시 · 스크롤/핀치로 확대
             </p>
           </div>
 
