@@ -39,6 +39,120 @@ html, body {
   padding: 1.4rem 1rem 3rem;
 }
 
+/* ── 탭 ── */
+.tab-bar {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 10px 4px;
+  margin-right: 0.8rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab.active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-text);
+}
+
+/* ── S-DoT ── */
+.sdot-picker {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sdot-select {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.sdot-select.grow { flex: 1; }
+
+.sensor-serial {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.sdot-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+}
+
+.sdot-card-head { margin-bottom: 0.8rem; }
+
+.sdot-place {
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.sdot-meta {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  margin-top: 0.2rem;
+}
+
+.sdot-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.sdot-table th {
+  text-align: right;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sdot-table th:first-child { text-align: left; }
+
+.sdot-table td {
+  text-align: right;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.sdot-table tr:last-child td { border-bottom: none; }
+
+.sdot-label {
+  text-align: left !important;
+  font-weight: 600;
+}
+
+.sdot-unit {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-left: 0.3rem;
+}
+
+.sdot-avg { font-weight: 700; }
+
 /* ── 헤더 ── */
 .app-header {
   display: flex;
